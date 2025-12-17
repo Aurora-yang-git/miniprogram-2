@@ -1,0 +1,9 @@
+<!--pages/index/index.wxml-->
+<view class="box">
+    <image wx:if="{{predClass=='None'}}" src="../../image/people.jpg" mode="" style="width: 400px; height: 400px;" />
+    <canvas type="" canvas-id="myCanvas" style="width: 400px; height: 400px;" />
+    <view class="resultbox">
+        <view class="reasult">推理结果为：{{predClass}}</view>
+        <button type="primary" bind:tap="handleChooseImage">上传图片</button>
+    </view>
+</view>

@@ -1,0 +1,37 @@
+.page-container {
+  min-height: 100vh;
+  background: #f7f8fa;
+}
+
+.form {
+  padding: 32rpx;
+}
+
+.field {
+  padding: 24rpx;
+}
+
+.label {
+  font-size: 26rpx;
+  color: #4e5969;
+  margin-bottom: 12rpx;
+}
+
+.input {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+}
+
+.textarea {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  min-height: 200rpx;
+  font-size: 28rpx;
+}
+
+.actions {
+  margin-top: 32rpx;
+}

@@ -1,0 +1,20 @@
+<view class="page-container">
+  <t-navbar title="新建卡片" left-arrow />
+
+  <view class="form">
+    <t-cell-group theme="card">
+      <view class="field">
+        <view class="label">问题</view>
+        <input class="input" placeholder="输入问题" value="{{question}}" bindinput="onQuestionChange" />
+      </view>
+      <view class="field">
+        <view class="label">答案</view>
+        <textarea class="textarea" placeholder="输入答案" value="{{answer}}" bindinput="onAnswerChange" />
+      </view>
+    </t-cell-group>
+
+    <view class="actions">
+      <t-button theme="primary" block bind:tap="handleSave">保存</t-button>
+    </view>
+  </view>
+</view>

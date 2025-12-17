@@ -1,0 +1,7 @@
+{
+  "usingComponents": {
+    "t-navbar": "/miniprogram_npm/tdesign-miniprogram/navbar/navbar",
+    "t-button": "/miniprogram_npm/tdesign-miniprogram/button/button",
+    "t-cell-group": "/miniprogram_npm/tdesign-miniprogram/cell-group/cell-group"
+  }
+}

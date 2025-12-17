@@ -1,0 +1,31 @@
+<view class="page-container">
+  <t-navbar title="复习" left-arrow />
+
+  <view class="content" wx:if="{{currentCard}}">
+    <view class="counter">{{currentIndex + 1}} / {{queue.length}}</view>
+
+    <view class="card" bind:tap="handleToggleReveal">
+      <view class="question">{{currentCard.question}}</view>
+
+      <view wx:if="{{reveal}}" class="answer">
+        <block wx:for="{{currentCard.answerSections}}" wx:key="index">
+          <view class="answer-block">
+            <view class="answer-title">{{item.title}}</view>
+            <view class="answer-content">{{item.content || item.latex || ''}}</view>
+          </view>
+        </block>
+      </view>
+
+      <view wx:else class="tip">点击查看答案</view>
+    </view>
+
+    <view class="actions">
+      <t-button theme="danger" variant="outline" block bind:tap="handleForget">忘记</t-button>
+      <t-button theme="primary" block bind:tap="handleRemember">记得</t-button>
+    </view>
+  </view>
+
+  <view class="empty" wx:else>
+    <t-empty icon="check-circle-filled" description="暂无复习任务" />
+  </view>
+</view>

@@ -1,0 +1,68 @@
+.page-container {
+  min-height: 100vh;
+  background: #f7f8fa;
+}
+
+.content {
+  padding: 32rpx;
+}
+
+.counter {
+  font-size: 24rpx;
+  color: #86909c;
+  margin-bottom: 16rpx;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  min-height: 520rpx;
+  box-sizing: border-box;
+}
+
+.question {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1d2129;
+}
+
+.tip {
+  margin-top: 24rpx;
+  font-size: 24rpx;
+  color: #86909c;
+}
+
+.answer {
+  margin-top: 24rpx;
+}
+
+.answer-block {
+  margin-bottom: 16rpx;
+}
+
+.answer-title {
+  font-size: 26rpx;
+  color: #4e5969;
+  margin-bottom: 8rpx;
+}
+
+.answer-content {
+  font-size: 28rpx;
+  line-height: 44rpx;
+  color: #1d2129;
+}
+
+.actions {
+  margin-top: 28rpx;
+  display: flex;
+  gap: 20rpx;
+}
+
+.actions t-button {
+  flex: 1;
+}
+
+.empty {
+  padding: 64rpx 32rpx;
+}

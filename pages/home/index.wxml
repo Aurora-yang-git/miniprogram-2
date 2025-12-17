@@ -1,0 +1,22 @@
+<view class="page-container">
+  <t-navbar title="今日" left-arrow="{{false}}" />
+
+  <view class="dashboard">
+    <view class="progress-card">
+      <t-progress theme="circle" percentage="{{progressPercent}}" label="{{false}}" stroke-width="8" />
+      <view class="progress-text">
+        <view class="progress-main">{{studiedToday}} / {{dailyGoal}}</view>
+        <view class="progress-sub">今日已学</view>
+      </view>
+    </view>
+
+    <view class="streak-card">
+      <view class="streak-title">连续学习</view>
+      <view class="streak-value">{{streakDays}} 天</view>
+    </view>
+
+    <view class="cta">
+      <t-button theme="primary" size="large" block bind:tap="handleStartReview">开始复习（{{pendingReviewCount}}）</t-button>
+    </view>
+  </view>
+</view>

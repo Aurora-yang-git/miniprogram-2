@@ -1,0 +1,82 @@
+<view class="page-container">
+  <t-navbar title="卡包" left-arrow="{{false}}" />
+
+  <view class="search-bar">
+    <t-search
+      value="{{keyword}}"
+      placeholder="搜索卡片"
+      clearable
+      bind:change="onSearchChange"
+      bind:clear="onSearchClear"
+      bind:submit="onSearchSubmit"
+    />
+  </view>
+
+  <t-tabs value="{{activeTab}}" theme="tag" bind:change="onTabChange">
+    <t-tab-panel label="全部" value="all" />
+    <t-tab-panel label="微观" value="micro" />
+    <t-tab-panel label="宏观" value="macro" />
+  </t-tabs>
+
+  <scroll-view scroll-y class="card-list">
+    <block wx:for="{{displayCards}}" wx:key="id">
+      <view class="card-item" bind:tap="onCardTap" data-id="{{item.id}}">
+        <view class="card-header">
+          <text class="card-question">{{item.question}}</text>
+          <view class="card-tags" wx:if="{{item.tags && item.tags.length}}">
+            <t-tag wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this" size="small" variant="light">
+              {{tag}}
+            </t-tag>
+          </view>
+        </view>
+        <view class="card-subtitle">
+          {{item.subject}} · {{item.unitName}}
+        </view>
+      </view>
+    </block>
+
+    <t-empty wx:if="{{!displayCards.length}}" icon="info-circle-filled" description="暂无卡片" />
+  </scroll-view>
+
+  <t-popup
+    visible="{{detailVisible}}"
+    placement="bottom"
+    bind:visible-change="onPopupClose"
+    custom-style="height: 85vh"
+  >
+    <view class="detail-container" wx:if="{{currentCard}}">
+      <view class="detail-header">
+        <view class="q-title">{{currentCard.question}}</view>
+        <t-icon wx:if="{{currentCard.sourceImage}}" name="image" size="24" />
+      </view>
+
+      <scroll-view scroll-y class="detail-content">
+        <block wx:for="{{currentCard.answerSections}}" wx:key="index">
+          <view class="section-block">
+            <view class="section-title">{{item.title}}</view>
+            <view wx:if="{{item.type === 'formula' && item.latex}}" class="formula-box">
+              {{item.latex}}
+            </view>
+            <view wx:elif="{{item.content}}" class="text-content">
+              {{item.content}}
+            </view>
+            <view wx:else class="text-muted">暂无内容</view>
+          </view>
+          <t-divider />
+        </block>
+
+        <view wx:if="{{currentCard.memoryHint}}" class="memory-hint">
+          <text class="hint-icon">💡</text>
+          <text class="hint-text">{{currentCard.memoryHint}}</text>
+        </view>
+
+        <view class="review-actions">
+          <t-button theme="danger" variant="outline" block data-level="forget" bind:tap="onMemoryAction">忘记</t-button>
+          <t-button theme="primary" variant="outline" block data-level="remember" bind:tap="onMemoryAction">记得</t-button>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+
+  <t-fab icon="add" bind:click="onAddCard" aria-label="新建卡片" />
+</view>

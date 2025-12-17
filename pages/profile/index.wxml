@@ -1,0 +1,19 @@
+<view class="page-container">
+  <t-navbar title="我的" left-arrow="{{false}}" />
+
+  <view class="header">
+    <view class="avatar">{{avatarText}}</view>
+    <view class="info">
+      <view class="name">{{nickname}}</view>
+      <view class="sub">已学习 {{studyDays}} 天</view>
+    </view>
+  </view>
+
+  <view class="menu">
+    <t-cell-group theme="card">
+      <t-cell title="学习目标" description="设置每日目标" arrow bind:click="handleEditProfile" />
+      <t-cell title="导入/导出" description="功能开发中" arrow bind:click="handleEditProfile" />
+      <t-cell title="关于" description="版本信息" arrow bind:click="handleEditProfile" />
+    </t-cell-group>
+  </view>
+</view>
