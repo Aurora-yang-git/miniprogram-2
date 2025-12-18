@@ -1,5 +1,7 @@
 {
   "compileType": "miniprogram",
+  "miniprogramRoot": "miniprogram/",
+  "cloudfunctionRoot": "cloudfunctions/",
   "setting": {
     "coverView": true,
     "es6": true,
@@ -39,5 +41,6 @@
   },
   "libVersion": "latest",
   "projectArchitecture": "miniProgram",
-  "simulatorPluginLibVersion": {}
+  "simulatorPluginLibVersion": {},
+  "cloudfunctionTemplateRoot": "cloudfunctionTemplate/"
 }

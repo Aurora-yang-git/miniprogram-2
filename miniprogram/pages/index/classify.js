@@ -1,4 +1,4 @@
-import { cloudUrl, baseUrl } from '../../util/config'
+import { cloudUrl, baseUrl } from '../../utils/config'
 import {envList} from '../../envList'
 const modelWidth = 224.0;
 const modelHeight = 224.0;
