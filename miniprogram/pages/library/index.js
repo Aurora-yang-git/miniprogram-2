@@ -1,4 +1,4 @@
-import { MOCK_CARDS } from '../../utils/mock-data'
+import { flashcardCollections } from '../../utils/flashcard-config'
 
 Page({
   data: {
@@ -10,16 +10,78 @@ Page({
     keyword: ''
   },
 
-  onLoad() {
+  onShow() {
     this.fetchCardList()
   },
 
   fetchCardList() {
-    const list = MOCK_CARDS
-    this.setData({
-      cardList: list,
-      displayCards: this.applyFilters({ tab: this.data.activeTab, keyword: this.data.keyword }, list)
-    })
+    const fallback = () => {
+      const list = []
+      this.setData({
+        cardList: list,
+        displayCards: list
+      })
+    }
+
+    if (!wx.cloud || !wx.cloud.database) {
+      fallback()
+      wx.showToast({
+        title: '云能力不可用',
+        icon: 'none'
+      })
+      return
+    }
+
+    const db = wx.cloud.database()
+    db.collection(flashcardCollections.cards)
+      .limit(200)
+      .get()
+      .then((res) => {
+        const rawList = Array.isArray(res.data) ? res.data : []
+        const normalized = rawList.map((card) => ({
+          ...card,
+          id: card.id || card._id,
+          tags: Array.isArray(card.tags) ? card.tags : [],
+          subject: typeof card.subject === 'string' ? card.subject : '',
+          unitName: typeof card.unitName === 'string' ? card.unitName : '',
+          subtitle: (() => {
+            const subject = typeof card.subject === 'string' ? card.subject.trim() : ''
+            const unitName = typeof card.unitName === 'string' ? card.unitName.trim() : ''
+            const parts = []
+            if (subject) parts.push(subject)
+            if (unitName) parts.push(unitName)
+            return parts.length ? parts.join(' · ') : '未分类'
+          })()
+        }))
+        const list = normalized
+
+        this.setData({
+          cardList: list,
+          displayCards: this.applyFilters({ tab: this.data.activeTab, keyword: this.data.keyword }, list)
+        })
+      })
+      .catch((err) => {
+        console.error('fetch cards failed', err)
+        fallback()
+        wx.showToast({
+          title: '加载卡片失败',
+          icon: 'none'
+        })
+      })
+  },
+
+  normalizeCardForDetail(card) {
+    const answerSections = Array.isArray(card.answerSections) && card.answerSections.length
+      ? card.answerSections
+      : (typeof card.answer === 'string' && card.answer.trim())
+        ? [{ title: '答案', type: 'text', content: card.answer }]
+        : []
+
+    return {
+      ...card,
+      tags: Array.isArray(card.tags) ? card.tags : [],
+      answerSections
+    }
   },
 
   applyFilters({ tab, keyword }, list = this.data.cardList) {
@@ -71,15 +133,36 @@ Page({
     this.refreshDisplayCards({ activeTab: value })
   },
 
-  onCardTap(event) {
+  async onCardTap(event) {
     const { id } = event.currentTarget.dataset
     const targetCard = this.data.cardList.find(card => card.id === id) || null
     if (!targetCard) return
 
+    const normalized = this.normalizeCardForDetail(targetCard)
     this.setData({
-      currentCard: targetCard,
+      currentCard: normalized,
       detailVisible: true
     })
+
+    if (!normalized.sourceImage || !wx.cloud || !wx.cloud.getTempFileURL) return
+
+    try {
+      const res = await wx.cloud.getTempFileURL({ fileList: [normalized.sourceImage] })
+      const file = res && Array.isArray(res.fileList) ? res.fileList[0] : null
+      const url = file && file.tempFileURL
+      if (!url) return
+
+      if (this.data.currentCard && this.data.currentCard.id === normalized.id) {
+        this.setData({
+          currentCard: {
+            ...this.data.currentCard,
+            sourceImageUrl: url
+          }
+        })
+      }
+    } catch (err) {
+      console.error('getTempFileURL failed', err)
+    }
   },
 
   onPopupClose(event) {

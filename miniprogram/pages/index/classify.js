@@ -1,5 +1,6 @@
-import { cloudUrl, baseUrl } from '../../utils/config'
+import { legacyModelConfig } from '../../utils/legacy-model-config'
 import {envList} from '../../envList'
+const { cloudUrl, baseUrl } = legacyModelConfig;
 const modelWidth = 224.0;
 const modelHeight = 224.0;
 const modelChannel = 3;

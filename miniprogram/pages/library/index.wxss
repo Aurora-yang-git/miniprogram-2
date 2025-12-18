@@ -74,6 +74,12 @@
   flex: 1;
 }
 
+.detail-image {
+  width: 100%;
+  border-radius: 16rpx;
+  margin-bottom: 24rpx;
+}
+
 .section-block {
   padding: 16rpx 0;
 }

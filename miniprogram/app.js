@@ -13,7 +13,7 @@ App({
       console.error('请使用 2.2.3 或以上的基础库以使用云能力')
     } else {
       wx.cloud.init({
-        env: 'eduction-cloud1-9gj4mqi9374a9268',
+        env: 'eduction-cloud1-8g0geqlyf50302db',
         traceUser: true,
       }).then(() => {
         console.log('云环境初始化成功')

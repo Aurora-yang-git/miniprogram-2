@@ -5,7 +5,7 @@
     <view class="avatar">{{avatarText}}</view>
     <view class="info">
       <view class="name">{{nickname}}</view>
-      <view class="sub">已学习 {{studyDays}} 天</view>
+      <view class="sub">已学习 {{studyDays}} 天 · XP {{xp}} · 连续 {{streak}} 天</view>
     </view>
   </view>
 

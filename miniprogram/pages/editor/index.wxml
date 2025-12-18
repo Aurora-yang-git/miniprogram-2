@@ -4,6 +4,14 @@
   <view class="form">
     <t-cell-group theme="card">
       <view class="field">
+        <view class="label">图片（可选）</view>
+        <view class="image-actions">
+          <t-button theme="default" variant="outline" size="small" bind:tap="onPickImage">选择图片</t-button>
+          <t-button wx:if="{{imagePath}}" theme="danger" variant="outline" size="small" bind:tap="onRemoveImage">移除</t-button>
+        </view>
+        <image wx:if="{{imagePath}}" class="image-preview" src="{{imagePath}}" mode="aspectFill" />
+      </view>
+      <view class="field">
         <view class="label">问题</view>
         <input class="input" placeholder="输入问题" value="{{question}}" bindinput="onQuestionChange" />
       </view>
