@@ -34,7 +34,7 @@ Page({
 
     const db = wx.cloud.database()
     db.collection(flashcardCollections.cards)
-      .limit(200)
+      .limit(20)
       .get()
       .then((res) => {
         const rawList = Array.isArray(res.data) ? res.data : []
@@ -77,10 +77,24 @@ Page({
         ? [{ title: '答案', type: 'text', content: card.answer }]
         : []
 
+    const sourceImages = (() => {
+      const ids = []
+      if (Array.isArray(card.sourceImages)) {
+        card.sourceImages.forEach((id) => {
+          if (typeof id === 'string' && id.trim()) ids.push(id)
+        })
+      }
+      if (typeof card.sourceImage === 'string' && card.sourceImage.trim()) {
+        ids.push(card.sourceImage)
+      }
+      return Array.from(new Set(ids))
+    })()
+
     return {
       ...card,
       tags: Array.isArray(card.tags) ? card.tags : [],
-      answerSections
+      answerSections,
+      sourceImages
     }
   },
 
@@ -144,19 +158,45 @@ Page({
       detailVisible: true
     })
 
-    if (!normalized.sourceImage || !wx.cloud || !wx.cloud.getTempFileURL) return
+    const sourceImages = Array.isArray(normalized.sourceImages) ? normalized.sourceImages : []
+    if (!sourceImages.length) return
+
+    const normalizedIds = sourceImages
+      .filter((id) => typeof id === 'string')
+      .map((id) => id.trim())
+      .filter((id) => !!id)
+
+    if (!normalizedIds.length) return
+
+    const isCloud = (fid) => /^cloud:\/\//.test(fid)
+    const cloudIds = normalizedIds.filter((fid) => isCloud(fid))
+
+    let urlMap = {}
+    if (cloudIds.length && wx.cloud && wx.cloud.getTempFileURL) {
+      try {
+        const res = await wx.cloud.getTempFileURL({ fileList: cloudIds })
+        const fileList = res && Array.isArray(res.fileList) ? res.fileList : []
+        fileList.forEach((file) => {
+          if (!file || !file.fileID || !file.tempFileURL) return
+          urlMap[file.fileID] = file.tempFileURL
+        })
+      } catch (err) {
+        console.error('getTempFileURL failed', err)
+      }
+    }
 
     try {
-      const res = await wx.cloud.getTempFileURL({ fileList: [normalized.sourceImage] })
-      const file = res && Array.isArray(res.fileList) ? res.fileList[0] : null
-      const url = file && file.tempFileURL
-      if (!url) return
+      const urls = normalizedIds
+        .map((fid) => (isCloud(fid) ? urlMap[fid] : fid))
+        .filter((u) => !!u)
+      if (!urls.length) return
 
       if (this.data.currentCard && this.data.currentCard.id === normalized.id) {
         this.setData({
           currentCard: {
             ...this.data.currentCard,
-            sourceImageUrl: url
+            sourceImageUrls: urls,
+            sourceImageUrl: urls[0]
           }
         })
       }
@@ -174,11 +214,55 @@ Page({
     wx.navigateTo({ url: '/pages/editor/index' })
   },
 
-  onMemoryAction(event) {
+  async onMemoryAction(event) {
     const { level } = event.currentTarget.dataset
-    wx.showToast({
-      title: `已记录：${level}`,
-      icon: 'none'
-    })
+    const current = this.data.currentCard
+    const cardId = current && (current.id || current._id)
+    if (!cardId) return
+
+    const result = level === 'forget' ? 'forget' : 'remember'
+    if (!wx.cloud || !wx.cloud.callFunction) {
+      wx.showToast({ title: '云能力不可用', icon: 'none' })
+      return
+    }
+
+    wx.showLoading({ title: '提交中' })
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'submitReview',
+        data: {
+          cardId,
+          result
+        }
+      })
+      const ret = res && res.result ? res.result : null
+      if (!ret || ret.ok !== true) {
+        throw new Error((ret && ret.error) || '提交失败')
+      }
+
+      wx.hideLoading()
+      wx.showToast({ title: '已记录', icon: 'success' })
+
+      const currentCard = this.data.currentCard
+      if (currentCard && (currentCard.id || currentCard._id) === cardId) {
+        const now = Date.now()
+        this.setData({
+          currentCard: {
+            ...currentCard,
+            lastReviewedAt: typeof ret.lastReviewedAt === 'number' ? ret.lastReviewedAt : now,
+            nextReviewAt: ret.nextReviewAt,
+            srsEF: ret.srsEF,
+            srsInterval: ret.srsInterval,
+            srsReps: ret.srsReps
+          }
+        })
+      }
+
+      this.setData({ detailVisible: false })
+    } catch (err) {
+      console.error('submitReview failed', err)
+      wx.hideLoading()
+      wx.showToast({ title: '提交失败', icon: 'none' })
+    }
   }
 })

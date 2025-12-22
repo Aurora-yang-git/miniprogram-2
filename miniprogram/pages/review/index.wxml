@@ -5,6 +5,10 @@
     <view class="counter">{{currentIndex + 1}} / {{queue.length}}</view>
 
     <view class="card" bind:tap="handleToggleReveal">
+      <block wx:if="{{currentCard.sourceImageUrls && currentCard.sourceImageUrls.length}}">
+        <image wx:for="{{currentCard.sourceImageUrls}}" wx:key="index" class="card-image" src="{{item}}" mode="widthFix" />
+      </block>
+      <image wx:elif="{{currentCard.sourceImageUrl}}" class="card-image" src="{{currentCard.sourceImageUrl}}" mode="widthFix" />
       <view class="question">{{currentCard.question}}</view>
 
       <view wx:if="{{reveal}}" class="answer">

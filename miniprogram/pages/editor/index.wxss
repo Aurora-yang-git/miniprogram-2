@@ -35,6 +35,7 @@
 .image-actions {
   display: flex;
   gap: 16rpx;
+  flex-wrap: wrap;
 }
 
 .image-preview {
@@ -44,6 +45,46 @@
   margin-top: 16rpx;
 }
 
+.image-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.image-item {
+  width: 48%;
+}
+
+.image-thumb {
+  width: 100%;
+  height: 240rpx;
+  border-radius: 16rpx;
+  box-sizing: border-box;
+}
+
+.image-item.active .image-thumb {
+  border: 4rpx solid #0052d9;
+}
+
+.image-item.unselected {
+  opacity: 0.6;
+}
+
+.thumb-actions {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 12rpx;
+}
+
+.thumb-actions t-button {
+  flex: 1;
+}
+
 .actions {
   margin-top: 32rpx;
+}
+
+.actions t-button + t-button {
+  margin-top: 16rpx;
 }

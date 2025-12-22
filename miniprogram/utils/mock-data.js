@@ -9,6 +9,7 @@ export const MOCK_CARDS = [
     sourceType: "preset",
     createdAt: "2023-10-01",
     sourceImage: "https://tdesign.gtimg.com/miniprogram/images/example1.png",
+    sourceImages: ["https://tdesign.gtimg.com/miniprogram/images/example1.png"],
     answerSections: [
       {
         type: "conceptName",
@@ -44,6 +45,7 @@ export const MOCK_CARDS = [
     question: "什么是边际成本 (Marginal Cost)？",
     sourceType: "preset",
     sourceImage: "https://tdesign.gtimg.com/miniprogram/images/example2.png",
+    sourceImages: ["https://tdesign.gtimg.com/miniprogram/images/example2.png"],
     answerSections: [
       {
         type: "definition",

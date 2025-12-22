@@ -50,6 +50,8 @@ Page({
       const base = {
         xp: 0,
         streak: 0,
+        studiedToday: 0,
+        lastStudyDate: '',
         createdAt,
         updatedAt: createdAt
       }

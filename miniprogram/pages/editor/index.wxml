@@ -7,9 +7,21 @@
         <view class="label">图片（可选）</view>
         <view class="image-actions">
           <t-button theme="default" variant="outline" size="small" bind:tap="onPickImage">选择图片</t-button>
-          <t-button wx:if="{{imagePath}}" theme="danger" variant="outline" size="small" bind:tap="onRemoveImage">移除</t-button>
+          <t-button wx:if="{{images && images.length}}" theme="primary" variant="outline" size="small" bind:tap="onGenerateByAI">批量生成卡片</t-button>
+          <t-button wx:if="{{images && images.length}}" theme="primary" variant="outline" size="small" bind:tap="onAnalyzeImage">识别文字</t-button>
+          <t-button wx:if="{{images && images.length}}" theme="danger" variant="outline" size="small" bind:tap="onRemoveImage">移除</t-button>
         </view>
-        <image wx:if="{{imagePath}}" class="image-preview" src="{{imagePath}}" mode="aspectFill" />
+        <view wx:if="{{images && images.length}}" class="image-grid">
+          <block wx:for="{{images}}" wx:key="index">
+            <view class="image-item {{index === activeImageIndex ? 'active' : ''}} {{item.selected === false ? 'unselected' : ''}}">
+              <image class="image-thumb" src="{{item.localPath}}" mode="aspectFill" data-index="{{index}}" bind:tap="onSetActiveImage" />
+              <view class="thumb-actions">
+                <t-button theme="{{item.selected === false ? 'default' : 'primary'}}" variant="outline" size="small" data-index="{{index}}" bind:tap="onToggleImageSelected">{{item.selected === false ? '未选' : '已选'}}</t-button>
+                <t-button theme="danger" variant="outline" size="small" data-index="{{index}}" bind:tap="onRemoveImageItem">删除</t-button>
+              </view>
+            </view>
+          </block>
+        </view>
       </view>
       <view class="field">
         <view class="label">问题</view>
@@ -23,6 +35,7 @@
 
     <view class="actions">
       <t-button theme="primary" block bind:tap="handleSave">保存</t-button>
+      <t-button theme="default" variant="outline" block bind:tap="handleSaveContinue">保存并继续</t-button>
     </view>
   </view>
 </view>
