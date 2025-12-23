@@ -97,6 +97,8 @@ exports.main = async (event) => {
     const yesterday = beijingDateString(now - 24 * 60 * 60 * 1000)
 
     const prevXp = stats && typeof stats.xp === 'number' ? stats.xp : 0
+    const prevDailyXp = stats && typeof stats.dailyXp === 'number' ? stats.dailyXp : 0
+    const prevTotalReviewed = stats && typeof stats.totalReviewed === 'number' ? stats.totalReviewed : 0
     const prevStreak = stats && typeof stats.streak === 'number' ? stats.streak : 0
     const prevStudiedToday = stats && typeof stats.studiedToday === 'number' ? stats.studiedToday : 0
     const lastStudyDate = stats && typeof stats.lastStudyDate === 'string' ? stats.lastStudyDate : ''
@@ -106,12 +108,18 @@ exports.main = async (event) => {
     let streak = prevStreak
     let studiedToday = prevStudiedToday
 
+    let dailyXp = prevDailyXp
+    let totalReviewed = prevTotalReviewed
+
     if (lastStudyDate === today) {
       studiedToday += 1
+      dailyXp += xpDelta
     } else {
       studiedToday = 1
       streak = lastStudyDate === yesterday ? prevStreak + 1 : 1
+      dailyXp = xpDelta
     }
+    totalReviewed += 1
 
     const xp = prevXp + xpDelta
     const updatedAt = db.serverDate()
@@ -120,8 +128,10 @@ exports.main = async (event) => {
       await statsCol.doc(stats._id).update({
         data: {
           xp,
+          dailyXp,
           streak,
           studiedToday,
+          totalReviewed,
           lastStudyDate: today,
           updatedAt
         }
@@ -131,8 +141,10 @@ exports.main = async (event) => {
       await statsCol.add({
         data: {
           xp,
+          dailyXp,
           streak,
           studiedToday,
+          totalReviewed,
           lastStudyDate: today,
           createdAt,
           updatedAt
@@ -151,8 +163,10 @@ exports.main = async (event) => {
       srsReps: next.reps,
       xpDelta,
       xp,
+      dailyXp,
       streak,
-      studiedToday
+      studiedToday,
+      totalReviewed
     }
   } catch (err) {
     console.error('submitReview failed', err)

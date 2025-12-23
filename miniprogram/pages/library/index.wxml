@@ -13,9 +13,8 @@
   </view>
 
   <t-tabs value="{{activeTab}}" theme="tag" bind:change="onTabChange">
-    <t-tab-panel label="全部" value="all" />
-    <t-tab-panel label="微观" value="micro" />
-    <t-tab-panel label="宏观" value="macro" />
+    <t-tab-panel label="我的卡包" value="mine" />
+    <t-tab-panel label="发现广场" value="discover" />
   </t-tabs>
 
   <scroll-view scroll-y class="card-list">
@@ -29,7 +28,10 @@
             </t-tag>
           </view>
         </view>
-        <view class="card-subtitle">{{item.subtitle}}</view>
+        <view class="card-subtitle">
+          <text>{{item.subtitle}}</text>
+          <text wx:if="{{activeTab === 'discover'}}" class="hot">热度 {{item.forkCount || 0}}</text>
+        </view>
       </view>
     </block>
 
@@ -73,8 +75,13 @@
         </view>
 
         <view class="review-actions">
-          <t-button theme="danger" variant="outline" block data-level="forget" bind:tap="onMemoryAction">忘记</t-button>
-          <t-button theme="primary" variant="outline" block data-level="remember" bind:tap="onMemoryAction">记得</t-button>
+          <block wx:if="{{activeTab === 'discover'}}">
+            <t-button theme="primary" block bind:tap="onForkCard">引用到我的卡包</t-button>
+          </block>
+          <block wx:else>
+            <t-button theme="danger" variant="outline" block data-level="forget" bind:tap="onMemoryAction">忘记</t-button>
+            <t-button theme="primary" variant="outline" block data-level="remember" bind:tap="onMemoryAction">记得</t-button>
+          </block>
         </view>
       </scroll-view>
     </view>

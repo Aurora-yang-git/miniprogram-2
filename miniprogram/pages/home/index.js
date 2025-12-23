@@ -11,7 +11,13 @@ Page({
     dailyGoal: 20,
     progressPercent: 0,
     streakDays: 0,
-    pendingReviewCount: 0
+    pendingReviewCount: 0,
+    totalCards: 0,
+    todayXp: 0,
+    rankTop: [],
+    myRank: 0,
+    currentMood: 'happy',
+    reviewProgress: 0
   },
 
   onShow() {
@@ -81,6 +87,9 @@ Page({
         .count()
       const pendingReviewCount = countRes && typeof countRes.total === 'number' ? countRes.total : 0
 
+      const totalRes = await db.collection(flashcardCollections.cards).count()
+      const totalCards = totalRes && typeof totalRes.total === 'number' ? totalRes.total : 0
+
       const openid = await this.getOpenid()
       const stats = await this.ensureUserStats(openid)
 
@@ -90,6 +99,9 @@ Page({
       const studiedToday = lastStudyDate === today
         ? (stats && typeof stats.studiedToday === 'number' ? stats.studiedToday : 0)
         : 0
+      const todayXp = lastStudyDate === today
+        ? (stats && typeof stats.dailyXp === 'number' ? stats.dailyXp : 0)
+        : 0
 
       const dailyGoal = this.data.dailyGoal
       const progressPercent = dailyGoal
@@ -98,10 +110,15 @@ Page({
 
       this.setData({
         pendingReviewCount,
+        totalCards,
         studiedToday,
+        todayXp,
         progressPercent,
-        streakDays
+        streakDays,
+        reviewProgress: totalCards ? Math.min(100, Math.round((pendingReviewCount / totalCards) * 100)) : 0
       })
+
+      this.loadRank()
       wx.hideLoading()
     } catch (err) {
       console.error('load dashboard failed', err)
@@ -113,5 +130,37 @@ Page({
   handleStartReview() {
     wx.navigateTo({ url: '/pages/review/index' })
   },
+
+  onStartReview() {
+    this.handleStartReview()
+  },
+
+  setMood(e) {
+    const m = e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.m
+    if (!m) return
+    this.setData({ currentMood: m })
+  },
+
+  async loadRank() {
+    if (!wx.cloud || !wx.cloud.callFunction) return
+    try {
+      const res = await wx.cloud.callFunction({ name: 'getGlobalRank' })
+      const ret = res && res.result ? res.result : null
+      if (!ret || ret.ok !== true) return
+      const top = Array.isArray(ret.top) ? ret.top : []
+      const withInitial = top.map((u) => {
+        const nickname = u && typeof u.nickname === 'string' ? u.nickname : ''
+        const initial = nickname ? nickname.slice(0, 1) : 'U'
+        return { ...u, initial }
+      })
+      const me = ret.me || null
+      this.setData({
+        rankTop: withInitial.slice(0, 50),
+        myRank: me && typeof me.rank === 'number' ? me.rank : 0
+      })
+    } catch (e) {
+      console.error('loadRank failed', e)
+    }
+  }
 
 })

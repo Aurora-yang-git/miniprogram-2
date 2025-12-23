@@ -1,19 +1,62 @@
 <view class="page-container">
-  <t-navbar title="我的" left-arrow="{{false}}" />
+  <t-navbar title="" left-arrow="{{false}}" style="--td-navbar-bg-color: transparent;" />
 
-  <view class="header">
-    <view class="avatar">{{avatarText}}</view>
-    <view class="info">
-      <view class="name">{{nickname}}</view>
-      <view class="sub">已学习 {{studyDays}} 天 · XP {{xp}} · 连续 {{streak}} 天</view>
+  <view class="profile-header" catch:tap="onRequestUserProfile">
+    <view class="avatar-ring">
+      <t-avatar image="{{userInfo.avatarUrl}}" size="large" />
+      <view class="level-badge">Lv.{{level}} {{levelTitle}}</view>
+    </view>
+    <view class="user-name">{{userInfo.nickName || '微信用户'}}</view>
+    <view class="user-id">UID: {{uid}} · 加入第 {{joinDays}} 天</view>
+  </view>
+
+  <view class="stats-grid">
+    <view class="stat-box blue">
+      <view class="label">记忆库</view>
+      <view class="value">{{cardCount}}</view>
+      <view class="icon">🧠</view>
+    </view>
+    <view class="stat-box orange">
+      <view class="label">专注时</view>
+      <view class="value">{{focusHours}}<text class="unit">h</text></view>
+      <view class="icon">⏱️</view>
+    </view>
+    <view class="stat-box green">
+      <view class="label">最高连胜</view>
+      <view class="value">{{streak}}<text class="unit">天</text></view>
+      <view class="icon">🔥</view>
     </view>
   </view>
 
-  <view class="menu">
+  <view class="menu-card card-base">
+    <view class="menu-title">控制台</view>
+
     <t-cell-group theme="card">
-      <t-cell title="学习目标" description="设置每日目标" arrow bind:click="handleEditProfile" />
-      <t-cell title="导入/导出" description="功能开发中" arrow bind:click="handleEditProfile" />
-      <t-cell title="关于" description="版本信息" arrow bind:click="handleEditProfile" />
+      <t-cell title="每日提醒" hover arrow>
+        <view slot="left-icon" class="menu-icon-bg pink">
+          <t-icon name="notification" />
+        </view>
+        <t-switch
+          slot="note"
+          value="{{reminderEnabled}}"
+          colors="{{['var(--c-action)', '#E0E0E0']}}"
+          bind:change="onToggleReminder"
+        />
+      </t-cell>
+
+      <t-cell title="数据导出" note="Markdown" hover arrow bind:click="onExportData">
+        <view slot="left-icon" class="menu-icon-bg purple">
+          <t-icon name="download" />
+        </view>
+      </t-cell>
+
+      <t-cell title="关于我们" hover arrow bind:click="onAbout">
+        <view slot="left-icon" class="menu-icon-bg blue">
+          <t-icon name="info-circle" />
+        </view>
+      </t-cell>
     </t-cell-group>
   </view>
+
+  <view class="version-tag">Version {{version}} · Vibecoding Build</view>
 </view>

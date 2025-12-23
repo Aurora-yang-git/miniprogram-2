@@ -6,7 +6,7 @@ Page({
     displayCards: [],
     currentCard: null,
     detailVisible: false,
-    activeTab: 'all',
+    activeTab: 'mine',
     keyword: ''
   },
 
@@ -33,8 +33,13 @@ Page({
     }
 
     const db = wx.cloud.database()
-    db.collection(flashcardCollections.cards)
-      .limit(20)
+    const query =
+      this.data.activeTab === 'discover'
+        ? db.collection(flashcardCollections.cards).where({ isPublic: true }).orderBy('forkCount', 'desc')
+        : db.collection(flashcardCollections.cards).orderBy('updatedAt', 'desc')
+
+    query
+      .limit(50)
       .get()
       .then((res) => {
         const rawList = Array.isArray(res.data) ? res.data : []
@@ -44,6 +49,7 @@ Page({
           tags: Array.isArray(card.tags) ? card.tags : [],
           subject: typeof card.subject === 'string' ? card.subject : '',
           unitName: typeof card.unitName === 'string' ? card.unitName : '',
+          forkCount: typeof card.forkCount === 'number' ? card.forkCount : 0,
           subtitle: (() => {
             const subject = typeof card.subject === 'string' ? card.subject.trim() : ''
             const unitName = typeof card.unitName === 'string' ? card.unitName.trim() : ''
@@ -98,15 +104,8 @@ Page({
     }
   },
 
-  applyFilters({ tab, keyword }, list = this.data.cardList) {
+  applyFilters({ keyword }, list = this.data.cardList) {
     let filtered = list
-
-    if (tab !== 'all') {
-      const matcher = tab === 'micro'
-        ? (card) => (/微观/.test(card.subject) || /微观/.test(card.unitName))
-        : (card) => (/宏观/.test(card.subject) || /宏观/.test(card.unitName))
-      filtered = filtered.filter(card => matcher(card))
-    }
 
     const kw = (keyword || '').trim().toLowerCase()
     if (!kw) return filtered
@@ -124,7 +123,7 @@ Page({
 
     this.setData({
       ...partial,
-      displayCards: this.applyFilters({ tab: nextTab, keyword: nextKeyword })
+      displayCards: this.applyFilters({ keyword: nextKeyword })
     })
   },
 
@@ -144,6 +143,14 @@ Page({
 
   onTabChange(event) {
     const { value } = event.detail
+    this.refreshDisplayCards({ activeTab: value })
+    this.fetchCardList()
+  },
+
+  onCustomTabTap(event) {
+    const { value } = event.currentTarget.dataset
+    if (!value) return
+    if (value === this.data.activeTab) return
     this.refreshDisplayCards({ activeTab: value })
   },
 
@@ -212,6 +219,36 @@ Page({
 
   onAddCard() {
     wx.navigateTo({ url: '/pages/editor/index' })
+  },
+
+  async onForkCard() {
+    const current = this.data.currentCard
+    const originCardId = current && (current.id || current._id)
+    if (!originCardId) return
+
+    if (!wx.cloud || !wx.cloud.callFunction) {
+      wx.showToast({ title: '云能力不可用', icon: 'none' })
+      return
+    }
+
+    wx.showLoading({ title: '引用中' })
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'forkCard',
+        data: { originCardId }
+      })
+      const ret = res && res.result ? res.result : null
+      if (!ret || ret.ok !== true) {
+        throw new Error((ret && ret.error) || '引用失败')
+      }
+      wx.hideLoading()
+      wx.showToast({ title: ret.existed ? '已在卡包中' : '引用成功', icon: 'success' })
+      this.setData({ detailVisible: false })
+    } catch (err) {
+      console.error('forkCard failed', err)
+      wx.hideLoading()
+      wx.showToast({ title: '引用失败', icon: 'none' })
+    }
   },
 
   async onMemoryAction(event) {

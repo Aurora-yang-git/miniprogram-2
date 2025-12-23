@@ -1,22 +1,71 @@
 <view class="page-container">
-  <t-navbar title="今日" left-arrow="{{false}}" />
+  <t-navbar title="" left-arrow="{{false}}" style="--td-navbar-bg-color: transparent;" />
 
-  <view class="dashboard">
-    <view class="progress-card">
-      <t-progress theme="circle" percentage="{{progressPercent}}" label="{{false}}" stroke-width="8" />
-      <view class="progress-text">
-        <view class="progress-main">{{studiedToday}} / {{dailyGoal}}</view>
-        <view class="progress-sub">今日已学</view>
+  <view class="section-mood">
+    <view class="header-title">Check-in 👋</view>
+    <scroll-view scroll-x class="mood-scroll" enable-flex>
+      <view class="mood-pill {{currentMood==='happy'?'active':''}}" bind:tap="setMood" data-m="happy">
+        <text class="emoji">😆</text> <text class="txt">开心</text>
+      </view>
+      <view class="mood-pill {{currentMood==='calm'?'active':''}}" bind:tap="setMood" data-m="calm">
+        <text class="emoji">🧘</text> <text class="txt">平静</text>
+      </view>
+      <view class="mood-pill {{currentMood==='tired'?'active':''}}" bind:tap="setMood" data-m="tired">
+        <text class="emoji">😫</text> <text class="txt">累了</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="section-ring flex-center">
+    <view class="ring-wrapper active-scale" bind:tap="handleStartReview">
+      <view class="ring-fill" style="--ringProgress: {{reviewProgress}};"></view>
+      <view class="ring-inner flex-center">
+        <view class="inner-content">
+          <text class="count">{{pendingReviewCount}}</text>
+          <text class="label">待复习</text>
+        </view>
       </view>
     </view>
 
-    <view class="streak-card">
-      <view class="streak-title">连续学习</view>
-      <view class="streak-value">{{streakDays}} 天</view>
-    </view>
+    <button class="btn-3d-green active-scale" bind:tap="handleStartReview">START REVIEW</button>
+  </view>
 
-    <view class="cta">
-      <t-button theme="primary" size="large" block bind:tap="handleStartReview">开始复习（{{pendingReviewCount}}）</t-button>
+  <view class="section-stats flex-between">
+    <view class="stat-card yellow-theme">
+      <view class="icon-box">🔥</view>
+      <view class="info">
+        <view class="val">{{streakDays}}</view>
+        <view class="lbl">Day Streak</view>
+      </view>
+    </view>
+    <view class="stat-card purple-theme">
+      <view class="icon-box">💎</view>
+      <view class="info">
+        <view class="val">{{todayXp}}</view>
+        <view class="lbl">XP Points</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="rank-card" wx:if="{{rankTop && rankTop.length}}">
+    <view class="rank-title">全服学霸榜</view>
+    <view class="rank-list">
+      <view class="rank-item" wx:for="{{rankTop}}" wx:key="openid">
+        <view class="rank-left">
+          <text class="rank-index">{{index + 1}}</text>
+          <view class="rank-avatar">
+            <image wx:if="{{item.avatarUrl}}" class="avatar-img" src="{{item.avatarUrl}}" mode="aspectFill" />
+            <view wx:else class="avatar-fallback">{{item.initial || 'U'}}</view>
+          </view>
+          <text class="rank-name">{{item.nickname}}</text>
+        </view>
+        <text class="rank-xp">{{item.xp}}</text>
+      </view>
+    </view>
+    <view class="rank-me" wx:if="{{myRank}}">
+      我的排名：{{myRank}}
     </view>
   </view>
 </view>
+
+

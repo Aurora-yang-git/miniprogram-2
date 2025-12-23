@@ -45,6 +45,15 @@
   margin-top: 16rpx;
   font-size: 24rpx;
   color: #86909c;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hot {
+  font-size: 22rpx;
+  color: #ff7a45;
+  font-weight: 600;
 }
 
 .detail-container {
@@ -138,3 +147,5 @@
 .review-actions t-button {
   flex: 1;
 }
+
+

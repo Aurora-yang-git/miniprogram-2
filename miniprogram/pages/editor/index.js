@@ -129,9 +129,14 @@ Page({
         const answer = Array.isArray(aRaw)
           ? aRaw.map((x) => String(x == null ? '' : x).trim()).filter(Boolean).join('\n')
           : (aRaw == null ? '' : String(aRaw).trim())
+        const tagsRaw = it && (it.tags ?? it.tagList)
+        const tags = Array.isArray(tagsRaw)
+          ? tagsRaw.map((t) => String(t == null ? '' : t).trim()).filter(Boolean)
+          : []
         return {
           question,
-          answer
+          answer,
+          tags
         }
       })
       .filter((it) => it.question && it.answer)
@@ -143,7 +148,7 @@ Page({
     }
 
     const model = wx.cloud.extend.AI.createModel('deepseek')
-    const systemPrompt = '你是学习卡片助手。请根据用户提供的材料生成多张用于记忆的卡片。输出要求：只输出严格的 JSON 数组，不要任何解释或额外文字；数组每一项必须包含 question 与 answer 字段，都是字符串；question 要简短具体、可直接从材料中回答；answer 要给出对应要点（可分点）；卡片数量由你根据材料复杂度决定，建议 3-12 张，最多 20 张。'
+    const systemPrompt = '你是学习卡片助手。请根据用户提供的材料生成多张用于记忆的卡片。输出要求：只输出严格的 JSON 数组，不要任何解释或额外文字；数组每一项必须包含 question 与 answer 字段（字符串）；可选包含 tags 字段（字符串数组，0-5个）；question 要简短具体、可直接从材料中回答；answer 给出对应要点（可分点）；卡片数量由你根据材料复杂度决定，建议 3-12 张，最多 20 张。'
     const userInput = String(sourceText || '').trim()
     if (!userInput) {
       throw new Error('内容为空')
@@ -362,7 +367,8 @@ Page({
         const data = {
           question,
           answer,
-          tags: [],
+          answerSections: [{ type: 'text', title: '答案', content: answer }],
+          tags: Array.isArray(item.tags) ? item.tags : [],
           isPublic: false,
           srsEF: 2.5,
           srsInterval: 0,
@@ -516,6 +522,7 @@ Page({
       const data = {
         question,
         answer,
+        answerSections: [{ type: 'text', title: '答案', content: answer }],
         tags: [],
         isPublic: false,
         srsEF: 2.5,

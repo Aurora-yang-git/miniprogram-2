@@ -5,7 +5,23 @@ Page({
     queue: [],
     currentIndex: 0,
     currentCard: null,
-    reveal: false
+    totalCards: 0,
+    isFlipped: false,
+    sessionXp: 0,
+    submitting: false,
+    statusBarRpx: 60
+  },
+
+  onLoad() {
+    try {
+      const sys = wx.getSystemInfoSync ? wx.getSystemInfoSync() : null
+      const statusBarHeight = sys && typeof sys.statusBarHeight === 'number' ? sys.statusBarHeight : 0
+      const screenWidth = sys && typeof sys.screenWidth === 'number' ? sys.screenWidth : 0
+      const rpx = screenWidth ? Math.round((statusBarHeight * 750) / screenWidth) : 0
+      if (rpx) this.setData({ statusBarRpx: rpx })
+    } catch (e) {
+      // ignore
+    }
   },
 
   onShow() {
@@ -102,7 +118,10 @@ Page({
         queue: [],
         currentIndex: 0,
         currentCard: null,
-        reveal: false
+        totalCards: 0,
+        isFlipped: false,
+        sessionXp: 0,
+        submitting: false
       })
     }
 
@@ -143,10 +162,10 @@ Page({
           queue,
           currentIndex: 0,
           currentCard: queue[0] || null,
-          reveal: false
-        },
-        () => {
-          this.loadCurrentCardImageUrls()
+          totalCards: queue.length,
+          isFlipped: false,
+          sessionXp: 0,
+          submitting: false
         }
       )
       wx.hideLoading()
@@ -158,16 +177,23 @@ Page({
     }
   },
 
-  handleToggleReveal() {
-    this.setData({ reveal: !this.data.reveal })
+  onExitReview() {
+    wx.navigateBack({ delta: 1 })
   },
 
-  async handleRemember() {
-    await this.submitReview('remember')
+  onFlipCard() {
+    if (!this.data.currentCard) return
+    this.setData({ isFlipped: !this.data.isFlipped })
   },
 
-  async handleForget() {
-    await this.submitReview('forget')
+  async onResult(event) {
+    const type = event && event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.type
+    if (!this.data.currentCard) return
+    if (!this.data.isFlipped) return
+    if (this.data.submitting) return
+
+    const result = type === 'forget' ? 'forget' : 'remember'
+    await this.submitReview(result)
   },
 
   async submitReview(result) {
@@ -179,6 +205,7 @@ Page({
       return
     }
 
+    this.setData({ submitting: true })
     wx.showLoading({ title: '提交中' })
     try {
       const res = await wx.cloud.callFunction({
@@ -194,10 +221,13 @@ Page({
       }
 
       wx.hideLoading()
+      const xpDelta = typeof ret.xpDelta === 'number' ? ret.xpDelta : 0
+      this.setData({ sessionXp: this.data.sessionXp + xpDelta, submitting: false })
       this.nextCard()
     } catch (err) {
       console.error('submit review failed', err)
       wx.hideLoading()
+      this.setData({ submitting: false })
       wx.showToast({ title: '提交失败', icon: 'none' })
     }
   },
@@ -205,8 +235,16 @@ Page({
   nextCard() {
     const next = this.data.currentIndex + 1
     if (next >= this.data.queue.length) {
-      wx.showToast({ title: '今日任务完成', icon: 'none' })
-      wx.navigateBack({ delta: 1 })
+      const xp = this.data.sessionXp || 0
+      wx.showModal({
+        title: '今日完成',
+        content: xp ? `本次获得 XP +${xp}` : '你已经完成了本次复习',
+        showCancel: false,
+        confirmText: '返回',
+        success: () => {
+          wx.navigateBack({ delta: 1 })
+        }
+      })
       return
     }
 
@@ -214,10 +252,7 @@ Page({
       {
         currentIndex: next,
         currentCard: this.data.queue[next] || null,
-        reveal: false
-      },
-      () => {
-        this.loadCurrentCardImageUrls()
+        isFlipped: false
       }
     )
   }

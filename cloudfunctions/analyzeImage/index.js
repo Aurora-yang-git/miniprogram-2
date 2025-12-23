@@ -123,7 +123,18 @@ exports.main = async (event) => {
     const prompt =
       event && typeof event.prompt === 'string' && event.prompt.trim()
         ? event.prompt.trim()
-        : '请把图片中的文字完整提取出来，按行输出；只输出识别到的文字，不要解释。'
+        : [
+          '你是专业 OCR 文字提取器。',
+          '任务：从图片中“逐行”提取全部可见文字，保持原始排版（换行、空行、编号、表格结构尽量保留）。',
+          '',
+          '输出要求（非常重要）：',
+          '1) 只输出识别到的原文，不要解释、不要总结、不要添加任何额外内容。',
+          '2) 保留原有的换行、列表编号、项目符号、括号、单位、上下标符号（如 ^ _ ）等。',
+          '3) 如果出现公式，请尽量按原样抄写；无法确定的字符用 ? 占位，但不要省略整行。',
+          '4) 不要输出 Markdown 代码块围栏（不要出现 ``` ）。',
+          '5) 如果图片为空或无法识别，只输出空字符串。'，
+          '6）详细描述无法转文字的图像'
+        ].join('\n')
 
     const resolved = await resolveImageUrl(cloud, fileID)
     let imageUrl = resolved && resolved.url ? resolved.url : ''
@@ -152,7 +163,7 @@ exports.main = async (event) => {
           ]
         }
       ],
-      temperature: 0.3
+      temperature: 0.2
     }
 
     let completion = null

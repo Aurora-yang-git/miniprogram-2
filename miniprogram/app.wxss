@@ -1,12 +1,98 @@
-/**app.wxss**/
-.container {
-  height: 100%;
+/* app.wxss */
+@import 'miniprogram_npm/tdesign-miniprogram/common/style/index.wxss';
+
+page {
+  /* =================================
+     核心调色盘 (Global Palette)
+     ================================= */
+
+  /* 行动系 (Action) */
+  --c-action: #58cc02;
+  --c-action-light: #d7ffb8;
+  --c-action-shadow: #58a700;
+
+  /* 能量系 (Energy) */
+  --c-energy: #ffc800;
+  --c-energy-light: #fff5d1;
+  --c-energy-shadow: #dfa600;
+
+  /* 智慧系 (Knowledge) */
+  --c-knowledge: #ce82ff;
+  --c-knowledge-light: #f4e5ff;
+  --c-knowledge-shadow: #a65cd9;
+
+  /* 治愈系 (Calm) */
+  --c-calm: #4facfe;
+  --c-calm-light: #e3f2fd;
+  --c-calm-shadow: #2e8ad6;
+
+  /* 基础色 (Neutral) */
+  --c-bg: #f7f9fc;
+  --c-white: #ffffff;
+  --c-text-main: #4b4b4b;
+  --c-text-sub: #afafaf;
+
+  /* =================================
+     形状与质感 (Shape & Texture)
+     ================================= */
+
+  --r-sm: 16rpx;
+  --r-md: 24rpx;
+  --r-lg: 32rpx;
+  --r-xl: 48rpx;
+
+  --shadow-card: 0 8rpx 24rpx rgba(0, 0, 0, 0.04);
+  --shadow-float: 0 16rpx 32rpx rgba(0, 0, 0, 0.08);
+  --shadow-btn-green: 0 10rpx 0 var(--c-action-shadow);
+  --shadow-btn-yellow: 0 10rpx 0 var(--c-energy-shadow);
+
+  background-color: var(--c-bg);
+  font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, sans-serif;
+  color: var(--c-text-main);
+  box-sizing: border-box;
+}
+
+/* =================================
+   通用工具类
+   ================================= */
+
+.page-container {
+  min-height: 100vh;
+}
+
+.card-base {
+  background: var(--c-white);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  padding: 32rpx;
+  margin: 24rpx 32rpx;
+  position: relative;
+  overflow: hidden;
+}
+
+.flex-center {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  border: 50rpx solid transparent;
-  border-left: 0;
-  border-right: 0;
-  box-sizing: border-box;
-} 
+}
+
+.header-title {
+  font-size: 40rpx;
+  font-weight: 900;
+  margin: 32rpx 40rpx;
+  color: var(--c-text-main);
+  letter-spacing: 2rpx;
+}
+
+.active-scale:active {
+  transform: scale(0.96);
+  transition: transform 0.1s;
+}
+
+
