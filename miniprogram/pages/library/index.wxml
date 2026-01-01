@@ -1,91 +1,37 @@
 <view class="page-container">
-  <t-navbar title="卡包" left-arrow="{{false}}" />
+  <t-navbar title="我的书架" left-arrow="{{false}}" style="--td-navbar-bg-color: transparent;" />
 
-  <view class="search-bar">
-    <t-search
-      value="{{keyword}}"
-      placeholder="搜索卡片"
-      clearable
-      bind:change="onSearchChange"
-      bind:clear="onSearchClear"
-      bind:submit="onSearchSubmit"
-    />
+  <view class="library-header">
+    <view class="text-h2">共 {{decks.length}} 个卡组</view>
+    <view class="text-caption">点击卡组开始学习</view>
   </view>
 
-  <t-tabs value="{{activeTab}}" theme="tag" bind:change="onTabChange">
-    <t-tab-panel label="我的卡包" value="mine" />
-    <t-tab-panel label="发现广场" value="discover" />
-  </t-tabs>
+  <view class="deck-grid">
+    <view class="deck-item add-new" bind:tap="onCreateDeck">
+      <view class="dashed-box">
+        <t-icon name="add" size="64rpx" color="var(--c-text-light)" />
+        <text class="add-text">新建卡组</text>
+      </view>
+    </view>
 
-  <scroll-view scroll-y class="card-list">
-    <block wx:for="{{displayCards}}" wx:key="id">
-      <view class="card-item" bind:tap="onCardTap" data-id="{{item.id}}">
-        <view class="card-header">
-          <text class="card-question">{{item.question}}</text>
-          <view class="card-tags" wx:if="{{item.tags && item.tags.length}}">
-            <t-tag wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this" size="small" variant="light">
-              {{tag}}
-            </t-tag>
+    <block wx:for="{{decks}}" wx:key="id">
+      <view class="deck-item" bind:tap="onEnterDeck" data-id="{{item.id}}">
+        
+        <view class="card-stack theme-{{item.theme}}">
+          <view class="stack-main">
+            <view class="deck-icon">
+              <t-icon name="{{item.icon}}" size="48rpx" />
+            </view>
+            <view class="deck-info">
+              <view class="deck-title">{{item.title}}</view>
+              <view class="deck-meta">{{item.count}} 张卡片 · {{item.lastReview}}</view>
+            </view>
           </view>
-        </view>
-        <view class="card-subtitle">
-          <text>{{item.subtitle}}</text>
-          <text wx:if="{{activeTab === 'discover'}}" class="hot">热度 {{item.forkCount || 0}}</text>
+          
         </view>
       </view>
     </block>
+  </view>
 
-    <t-empty wx:if="{{!displayCards.length}}" icon="info-circle-filled" description="暂无卡片" />
-  </scroll-view>
-
-  <t-popup
-    visible="{{detailVisible}}"
-    placement="bottom"
-    bind:visible-change="onPopupClose"
-    custom-style="height: 85vh"
-  >
-    <view class="detail-container" wx:if="{{currentCard}}">
-      <view class="detail-header">
-        <view class="q-title">{{currentCard.question}}</view>
-        <t-icon wx:if="{{currentCard.sourceImages && currentCard.sourceImages.length}}" name="image" size="24" />
-      </view>
-
-      <scroll-view scroll-y class="detail-content">
-        <block wx:if="{{currentCard.sourceImageUrls && currentCard.sourceImageUrls.length}}">
-          <image wx:for="{{currentCard.sourceImageUrls}}" wx:key="index" class="detail-image" src="{{item}}" mode="widthFix" />
-        </block>
-        <image wx:elif="{{currentCard.sourceImageUrl}}" class="detail-image" src="{{currentCard.sourceImageUrl}}" mode="widthFix" />
-        <block wx:for="{{currentCard.answerSections}}" wx:key="index">
-          <view class="section-block">
-            <view class="section-title">{{item.title}}</view>
-            <view wx:if="{{item.type === 'formula' && item.latex}}" class="formula-box">
-              {{item.latex}}
-            </view>
-            <view wx:elif="{{item.content}}" class="text-content">
-              {{item.content}}
-            </view>
-            <view wx:else class="text-muted">暂无内容</view>
-          </view>
-          <t-divider />
-        </block>
-
-        <view wx:if="{{currentCard.memoryHint}}" class="memory-hint">
-          <text class="hint-icon">💡</text>
-          <text class="hint-text">{{currentCard.memoryHint}}</text>
-        </view>
-
-        <view class="review-actions">
-          <block wx:if="{{activeTab === 'discover'}}">
-            <t-button theme="primary" block bind:tap="onForkCard">引用到我的卡包</t-button>
-          </block>
-          <block wx:else>
-            <t-button theme="danger" variant="outline" block data-level="forget" bind:tap="onMemoryAction">忘记</t-button>
-            <t-button theme="primary" variant="outline" block data-level="remember" bind:tap="onMemoryAction">记得</t-button>
-          </block>
-        </view>
-      </scroll-view>
-    </view>
-  </t-popup>
-
-  <t-fab icon="add" bind:click="onAddCard" aria-label="新建卡片" />
+  <view style="height: 100rpx;"></view>
 </view>

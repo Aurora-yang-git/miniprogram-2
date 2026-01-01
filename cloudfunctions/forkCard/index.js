@@ -3,6 +3,7 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 const db = cloud.database()
+const _ = db.command
 
 exports.main = async (event) => {
   try {
@@ -17,6 +18,11 @@ exports.main = async (event) => {
     const originRes = await cardsCol.doc(originCardId).get()
     const origin = originRes && originRes.data ? originRes.data : null
     if (!origin) return { ok: false, error: 'origin card not found' }
+
+    // 只允许引用公开卡
+    if (origin.isPublic !== true) {
+      return { ok: false, error: 'origin card not public' }
+    }
 
     // 不允许引用自己的卡（避免刷热度/重复）
     if (origin._openid === OPENID) {
@@ -72,10 +78,9 @@ exports.main = async (event) => {
     const forkedId = addRes && addRes._id ? addRes._id : ''
 
     // 原卡热度 +1
-    const prevForkCount = typeof origin.forkCount === 'number' ? origin.forkCount : 0
     await cardsCol.doc(originCardId).update({
       data: {
-        forkCount: prevForkCount + 1,
+        forkCount: _.inc(1),
         updatedAt: db.serverDate()
       }
     })

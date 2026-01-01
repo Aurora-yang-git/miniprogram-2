@@ -3,66 +3,82 @@
 
 page {
   /* =================================
-     核心调色盘 (Global Palette)
+     🎨 核心色板 (Academic Pop Palette)
      ================================= */
+  
+  /* 🔵 品牌主色 (沉稳学术风) */
+  --c-primary: #2C68FF; 
+  --c-primary-dark: #1A4BD6;
+  --c-primary-light: #EBF2FF;
 
-  /* 行动系 (Action) */
-  --c-action: #58cc02;
-  --c-action-light: #d7ffb8;
-  --c-action-shadow: #58a700;
+  /* 🟠 强调/行动色 (百词斩活力感) */
+  --c-accent: #FF8D1A;
+  --c-accent-dark: #D66E00;
+  --c-accent-light: #FFF4E6;
 
-  /* 能量系 (Energy) */
-  --c-energy: #ffc800;
-  --c-energy-light: #fff5d1;
-  --c-energy-shadow: #dfa600;
+  /* 🟢 成功/记忆 */
+  --c-success: #00C777;
+  --c-success-dark: #009E5E;
+  --c-success-light: #E6FFF5;
+  
+  /* 🔴 遗忘/警告 */
+  --c-danger: #FF4C4C;
+  --c-danger-dark: #D62F2F;
+  --c-danger-light: #FFEBEB;
 
-  /* 智慧系 (Knowledge) */
-  --c-knowledge: #ce82ff;
-  --c-knowledge-light: #f4e5ff;
-  --c-knowledge-shadow: #a65cd9;
-
-  /* 治愈系 (Calm) */
-  --c-calm: #4facfe;
-  --c-calm-light: #e3f2fd;
-  --c-calm-shadow: #2e8ad6;
-
-  /* 基础色 (Neutral) */
-  --c-bg: #f7f9fc;
-  --c-white: #ffffff;
-  --c-text-main: #4b4b4b;
-  --c-text-sub: #afafaf;
+  /* ⚪ 中性色 (纸张阅读感) */
+  --c-bg: #F5F7FA;       /* 全局浅灰底 */
+  --c-card: #FFFFFF;     /* 卡片白 */
+  --c-text-title: #1F2329; /* 墨黑 */
+  --c-text-body: #575D6C;  /* 深灰 */
+  --c-text-light: #9DA3B0; /* 浅灰 */
+  --c-border: #E3E6EB;     /* 边框线 */
 
   /* =================================
-     形状与质感 (Shape & Texture)
+     📐 物理规则 (Physics System)
      ================================= */
+  
+  /* 统一圆角：既不锐利也不过于圆润 */
+  --r-base: 24rpx;
+  --r-sm: 12rpx;
+  --r-pill: 100rpx;
 
-  --r-sm: 16rpx;
-  --r-md: 24rpx;
-  --r-lg: 32rpx;
-  --r-xl: 48rpx;
+  /* 统一边框：增加精致感 */
+  --border-base: 2rpx solid var(--c-border);
+  --border-primary: 2rpx solid var(--c-primary);
 
-  --shadow-card: 0 8rpx 24rpx rgba(0, 0, 0, 0.04);
-  --shadow-float: 0 16rpx 32rpx rgba(0, 0, 0, 0.08);
-  --shadow-btn-green: 0 10rpx 0 var(--c-action-shadow);
-  --shadow-btn-yellow: 0 10rpx 0 var(--c-energy-shadow);
+  /* 核心：硬阴影 (Hard Shadow) - 模拟实体卡片 */
+  --shadow-card: 0 4rpx 0 #E3E6EB; 
+  --shadow-float: 0 8rpx 0 #D0D5DF;
+  
+  /* 按钮的立体底座 */
+  --shadow-btn-primary: 0 8rpx 0 var(--c-primary-dark);
+  --shadow-btn-accent: 0 8rpx 0 var(--c-accent-dark);
+  --shadow-btn-success: 0 8rpx 0 var(--c-success-dark);
+  --shadow-btn-danger: 0 8rpx 0 var(--c-danger-dark);
 
-  background-color: var(--c-bg);
+  /* 全局字体 */
   font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, sans-serif;
-  color: var(--c-text-main);
+  color: var(--c-text-title);
+  background-color: var(--c-bg);
   box-sizing: border-box;
 }
 
 /* =================================
-   通用工具类
+   🧱 通用组件积木 (Global Components)
    ================================= */
 
 .page-container {
   min-height: 100vh;
+  padding-bottom: 80rpx;
 }
 
-.card-base {
-  background: var(--c-white);
-  border-radius: var(--r-lg);
+/* 1. 标准卡片 (Standard Card) */
+/* 以后所有页面只要用这个类，风格绝对统一 */
+.ui-card {
+  background: var(--c-card);
+  border-radius: var(--r-base);
+  border: var(--border-base);
   box-shadow: var(--shadow-card);
   padding: 32rpx;
   margin: 24rpx 32rpx;
@@ -70,29 +86,35 @@ page {
   overflow: hidden;
 }
 
-.flex-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* 2. 立体按钮 (3D Button) */
+.btn-base {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32rpx; font-weight: 700;
+  border-radius: var(--r-base);
+  padding: 24rpx 0;
+  transition: all 0.1s;
+}
+.btn-base:active {
+  transform: translateY(6rpx); /* 按压反馈 */
+  box-shadow: none !important; /* 消除底座 */
 }
 
-.flex-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* 按钮变种 */
+.btn-primary { 
+  background: var(--c-primary); color: #fff; 
+  box-shadow: var(--shadow-btn-primary); 
+}
+.btn-accent { 
+  background: var(--c-accent); color: #fff; 
+  box-shadow: var(--shadow-btn-accent); 
 }
 
-.header-title {
-  font-size: 40rpx;
-  font-weight: 900;
-  margin: 32rpx 40rpx;
-  color: var(--c-text-main);
-  letter-spacing: 2rpx;
-}
+/* 3. 字体排版 */
+.text-h1 { font-size: 44rpx; font-weight: 800; color: var(--c-text-title); letter-spacing: 1rpx; }
+.text-h2 { font-size: 36rpx; font-weight: 700; color: var(--c-text-title); }
+.text-body { font-size: 28rpx; color: var(--c-text-body); line-height: 1.6; }
+.text-caption { font-size: 24rpx; color: var(--c-text-light); }
 
-.active-scale:active {
-  transform: scale(0.96);
-  transition: transform 0.1s;
-}
-
-
+/* Flex 工具 */
+.row-between { display: flex; justify-content: space-between; align-items: center; }
+.row-center { display: flex; justify-content: center; align-items: center; }

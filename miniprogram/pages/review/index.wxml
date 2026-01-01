@@ -1,5 +1,5 @@
-<view class="page-container gym-bg">
-  <view wx:if="{{currentCard}}" class="gym-header" style="padding-top: {{statusBarRpx + 24}}rpx;">
+<view class="page-container" style="background: #E8ECF0;">
+  <view class="review-header" style="padding-top: {{statusBarRpx + 24}}rpx;">
     <view class="header-close" catch:tap="onExitReview">
       <t-icon name="close" size="40rpx" />
     </view>
@@ -14,52 +14,72 @@
 
   <view wx:if="{{currentCard}}" class="card-stage" bind:tap="onFlipCard">
     <view class="flip-wrapper {{isFlipped ? 'flipped' : ''}}">
+      
+      <!-- 正面：问题 -->
       <view class="card-face face-front">
+        <view class="card-type-badge">问 Question</view>
         <view class="card-tag"># {{(currentCard.tags && currentCard.tags[0]) || '知识点'}}</view>
-        <view class="question-text">{{currentCard.question}}</view>
-        <view class="hint-text">点击翻转查看答案</view>
+        <view class="content-center">
+          <view class="text-h1">{{currentCard.question}}</view>
+        </view>
+        <view class="tap-hint">点击翻转 👆</view>
       </view>
 
+      <!-- 反面：答案 -->
       <view class="card-face face-back">
-        <scroll-view scroll-y class="answer-scroll">
-          <block wx:for="{{currentCard.answerSections}}" wx:key="index">
-            <view wx:if="{{item.type === 'text'}}" class="ans-block text">
-              {{item.content}}
-            </view>
-            <view wx:elif="{{item.type === 'definition'}}" class="ans-block definition">
-              <view class="block-title">定义</view>
-              {{item.content}}
-            </view>
-            <view wx:elif="{{item.type === 'formula'}}" class="ans-block formula">
-              <text class="latex">{{item.latex || item.content}}</text>
-            </view>
-            <view wx:elif="{{item.type === 'code'}}" class="ans-block code">
-              <text class="code-text">{{item.code || item.content}}</text>
-            </view>
-            <view wx:elif="{{item.type === 'image'}}" class="ans-block image">
-              <image class="ans-image" src="{{item.imageUrl}}" mode="widthFix" />
-            </view>
-            <view wx:else class="ans-block text">
-              {{item.content || item.latex || item.code || ''}}
-            </view>
-          </block>
+        <view class="card-type-badge" style="background: var(--c-success-light); color: var(--c-success-dark);">答 Answer</view>
+        <scroll-view scroll-y class="answer-content">
+          <view class="notebook-lines"></view>
+          
+          <view style="position: relative; z-index: 2;">
+             <block wx:for="{{currentCard.answerSections}}" wx:key="index">
+               <view class="ans-item">
+                 <view class="ans-label">{{item.type || 'CONTENT'}}</view>
+                 
+                 <!-- 文本/定义 -->
+                 <view wx:if="{{item.type === 'text' || item.type === 'definition'}}" class="ans-text text-body {{item.type}}">
+                   {{item.content}}
+                 </view>
+                 
+                 <!-- 公式 -->
+                 <view wx:elif="{{item.type === 'formula'}}" class="ans-formula">
+                   {{item.latex || item.content}}
+                 </view>
+                 
+                 <!-- 代码 -->
+                 <view wx:elif="{{item.type === 'code'}}" class="ans-code">
+                   <text class="code-text">{{item.code || item.content}}</text>
+                 </view>
+                 
+                 <!-- 图片 -->
+                 <view wx:elif="{{item.type === 'image'}}" class="ans-image-wrapper">
+                   <image class="ans-image" src="{{item.imageUrl}}" mode="widthFix" />
+                 </view>
+
+                 <!-- 默认显示 -->
+                 <view wx:else class="ans-text text-body">
+                   {{item.content || ''}}
+                 </view>
+               </view>
+             </block>
+          </view>
         </scroll-view>
       </view>
+
     </view>
   </view>
 
-  <view wx:if="{{currentCard}}" class="controller-bar {{isFlipped ? 'active' : ''}}">
-    <view class="btn-game btn-red" catch:tap="onResult" data-type="forget">
-      <t-icon name="close" size="48rpx" />
-      <text>忘记</text>
+  <!-- 底部操作栏 -->
+  <view class="action-bar row-between {{isFlipped ? 'active' : ''}}">
+    <view class="btn-game btn-forget" catch:tap="onResult" data-type="forget">
+      <t-icon name="close" size="48rpx" /> 忘记
     </view>
-    <view class="btn-game btn-green" catch:tap="onResult" data-type="remember">
-      <t-icon name="check" size="48rpx" />
-      <text>记得</text>
+    <view class="btn-game btn-remember" catch:tap="onResult" data-type="remember">
+      <t-icon name="check" size="48rpx" /> 记得
     </view>
   </view>
 
-  <view wx:else class="empty">
+  <view wx:if="{{!currentCard}}" class="empty">
     <t-empty icon="check-circle-filled" description="暂无复习任务" />
   </view>
 </view>

@@ -17,15 +17,16 @@ Page({
     rankTop: [],
     myRank: 0,
     currentMood: 'happy',
-    reviewProgress: 0
+    reviewProgress: 0,
+    myStats: {
+      streakDays: 0,
+      todayScore: 0
+    },
+    reviewCount: 0
   },
 
   onShow() {
-    return this._onShow()
-  },
-
-  async _onShow() {
-    await this.loadDashboard()
+    this.loadDashboard()
   },
 
   async getOpenid() {
@@ -110,12 +111,17 @@ Page({
 
       this.setData({
         pendingReviewCount,
+        reviewCount: pendingReviewCount,
         totalCards,
         studiedToday,
         todayXp,
         progressPercent,
         streakDays,
-        reviewProgress: totalCards ? Math.min(100, Math.round((pendingReviewCount / totalCards) * 100)) : 0
+        reviewProgress: totalCards ? Math.min(100, Math.round((pendingReviewCount / totalCards) * 100)) : 0,
+        myStats: {
+          streakDays,
+          todayScore: todayXp
+        }
       })
 
       this.loadRank()

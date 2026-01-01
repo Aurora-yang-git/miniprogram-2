@@ -1,49 +1,45 @@
-<view class="page-container">
-  <t-navbar title="" left-arrow="{{false}}" style="--td-navbar-bg-color: transparent;" />
+ai<view class="page-container">
+  <t-navbar title="今日计划" left-arrow="{{false}}" custom-style="background-color: transparent;" />
 
-  <view class="section-mood">
-    <view class="header-title">Check-in 👋</view>
-    <scroll-view scroll-x class="mood-scroll" enable-flex>
-      <view class="mood-pill {{currentMood==='happy'?'active':''}}" bind:tap="setMood" data-m="happy">
-        <text class="emoji">😆</text> <text class="txt">开心</text>
+  <view class="ui-card header-card">
+    <view class="row-between">
+      <view class="user-welcome">
+        <view class="text-caption">Welcome Back</view>
+        <view class="text-h2">保持专注 🔥</view>
       </view>
-      <view class="mood-pill {{currentMood==='calm'?'active':''}}" bind:tap="setMood" data-m="calm">
-        <text class="emoji">🧘</text> <text class="txt">平静</text>
+      <view class="streak-badge">
+        <t-icon name="time" size="32rpx" style="margin-right:8rpx"/> {{myStats.streakDays}} 天连胜
       </view>
-      <view class="mood-pill {{currentMood==='tired'?'active':''}}" bind:tap="setMood" data-m="tired">
-        <text class="emoji">😫</text> <text class="txt">累了</text>
-      </view>
-    </scroll-view>
+    </view>
   </view>
 
-  <view class="section-ring flex-center">
-    <view class="ring-wrapper active-scale" bind:tap="handleStartReview">
-      <view class="ring-fill" style="--ringProgress: {{reviewProgress}};"></view>
-      <view class="ring-inner flex-center">
-        <view class="inner-content">
-          <text class="count">{{pendingReviewCount}}</text>
-          <text class="label">待复习</text>
+  <view class="dashboard-area row-center">
+    <view class="ring-container">
+      <view class="ring-track"></view>
+      <view class="ring-progress" style="--p: {{reviewProgress}}%; background: conic-gradient(var(--c-primary) var(--p), transparent 0);"></view>
+      <view class="ring-inner row-center">
+        <view style="text-align:center">
+          <view class="text-h1" style="font-size: 80rpx;">{{reviewCount}}</view>
+          <view class="text-caption">待复习</view>
         </view>
       </view>
     </view>
-
-    <button class="btn-3d-green active-scale" bind:tap="handleStartReview">START REVIEW</button>
   </view>
 
-  <view class="section-stats flex-between">
-    <view class="stat-card yellow-theme">
-      <view class="icon-box">🔥</view>
-      <view class="info">
-        <view class="val">{{streakDays}}</view>
-        <view class="lbl">Day Streak</view>
-      </view>
+  <view style="padding: 0 60rpx; margin-bottom: 60rpx;">
+    <button class="btn-base btn-accent" bind:tap="onStartReview">
+      开始背单词 / 复习
+    </button>
+  </view>
+
+  <view class="stats-row">
+    <view class="ui-card stat-item">
+      <view class="text-caption">今日积分</view>
+      <view class="text-h2" style="color: var(--c-success);">{{myStats.todayScore}}</view>
     </view>
-    <view class="stat-card purple-theme">
-      <view class="icon-box">💎</view>
-      <view class="info">
-        <view class="val">{{todayXp}}</view>
-        <view class="lbl">XP Points</view>
-      </view>
+    <view class="ui-card stat-item">
+      <view class="text-caption">累计掌握</view>
+      <view class="text-h2" style="color: var(--c-primary);">1,024</view>
     </view>
   </view>
 
@@ -67,5 +63,3 @@
     </view>
   </view>
 </view>
-
-

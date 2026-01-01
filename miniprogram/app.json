@@ -1,7 +1,8 @@
 {
   "pages": [
     "pages/home/index",    
-    "pages/library/index",    
+    "pages/library/index",
+    "pages/library/detail",
     "pages/profile/index",    
     
     "pages/review/index",    

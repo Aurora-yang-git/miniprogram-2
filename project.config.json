@@ -1,8 +1,19 @@
 {
+  "projectArchitecture": "miniProgram",
+  "appid": "wx698081f7a78252ad",
+  "projectname": "miniprogram-2",
   "compileType": "miniprogram",
+  "libVersion": "3.13.0",
   "miniprogramRoot": "miniprogram/",
+  "srcMiniprogramRoot": "miniprogram/",
   "cloudfunctionRoot": "cloudfunctions/",
+  "cloudfunctionTemplateRoot": "cloudfunctionTemplate/",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
   "setting": {
+    "urlCheck": false,
     "coverView": true,
     "es6": true,
     "postcss": true,
@@ -10,37 +21,16 @@
     "enhance": true,
     "showShadowRootInWxmlPanel": true,
     "packNpmRelationList": [],
+    "ignoreUploadUnusedFiles": true,
     "babelSetting": {
       "ignore": [],
       "disablePlugins": [],
       "outputPath": ""
-    },
-    "ignoreUploadUnusedFiles": true,
-    "compileWorklet": false,
-    "uglifyFileName": false,
-    "uploadWithSourceMap": true,
-    "packNpmManually": false,
-    "minifyWXSS": true,
-    "minifyWXML": true,
-    "localPlugins": false,
-    "condition": false,
-    "swc": false,
-    "disableSWC": true,
-    "disableUseStrict": false,
-    "useCompilerPlugins": false
+    }
   },
   "condition": {},
   "editorSetting": {
     "tabIndent": "auto",
     "tabSize": 2
-  },
-  "appid": "wx698081f7a78252ad",
-  "packOptions": {
-    "ignore": [],
-    "include": []
-  },
-  "libVersion": "latest",
-  "projectArchitecture": "miniProgram",
-  "simulatorPluginLibVersion": {},
-  "cloudfunctionTemplateRoot": "cloudfunctionTemplate/"
+  }
 }

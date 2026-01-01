@@ -5,3 +5,5 @@
 .vscode/
 
 miniprogram/miniprogram_npm/
+
+node_modules/

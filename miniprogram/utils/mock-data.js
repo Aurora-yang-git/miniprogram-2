@@ -1,3 +1,39 @@
+// 1. 卡片集 (像一本本书)
+export const MOCK_DECKS = [
+  {
+    id: 'deck_01',
+    title: '微观经济学核心',
+    count: 24,
+    theme: 'blue', // 对应 CSS 里的颜色类
+    icon: 'chart-bar',
+    lastReview: '10分钟前'
+  },
+  {
+    id: 'deck_02',
+    title: '雅思高频词汇',
+    count: 102,
+    theme: 'orange',
+    icon: 'translate',
+    lastReview: '昨天'
+  },
+  {
+    id: 'deck_03',
+    title: 'React 面试题',
+    count: 15,
+    theme: 'purple',
+    icon: 'code',
+    lastReview: '3天前'
+  },
+  {
+    id: 'deck_04',
+    title: '线性代数公式',
+    count: 8,
+    theme: 'green',
+    icon: 'function',
+    lastReview: '未开始'
+  }
+];
+
 export const MOCK_CARDS = [
   {
     id: "card_001",

@@ -1,187 +1,80 @@
-.section-mood {
-  margin-bottom: 40rpx;
+/* 头部微调 */
+.header-card { margin-top: 0; background: var(--c-primary-light); border-color: var(--c-primary-light); }
+.streak-badge {
+  background: #fff; color: var(--c-primary);
+  padding: 8rpx 20rpx; border-radius: var(--r-pill);
+  font-size: 24rpx; font-weight: 700;
+  box-shadow: 0 4rpx 0 rgba(44, 104, 255, 0.2);
 }
 
-.mood-scroll {
-  padding: 0 40rpx;
-  height: 100rpx;
-  display: flex;
-}
-
-.mood-pill {
-  background: var(--c-white);
-  padding: 16rpx 32rpx;
-  border-radius: 50rpx;
-  margin-right: 20rpx;
-  display: flex;
-  align-items: center;
-  box-shadow: var(--shadow-card);
-  border: 4rpx solid transparent;
-  transition: all 0.2s;
-}
-
-.mood-pill .emoji {
-  font-size: 32rpx;
-  margin-right: 8rpx;
-}
-
-.mood-pill .txt {
-  font-size: 26rpx;
-  font-weight: bold;
-  color: var(--c-text-main);
-}
-
-.mood-pill.active {
-  background: var(--c-calm-light);
-  border-color: var(--c-calm);
-  color: var(--c-calm);
-}
-
-.section-ring {
-  flex-direction: column;
-  margin: 40rpx 0;
-}
-
-.ring-wrapper {
-  width: 400rpx;
-  height: 400rpx;
-  border-radius: 50%;
+/* 仪表盘 */
+.dashboard-area { padding: 60rpx 0; }
+.ring-container {
+  width: 420rpx; height: 420rpx;
   position: relative;
-  margin-bottom: -50rpx;
-  z-index: 1;
-}
-
-.ring-fill {
-  width: 100%;
-  height: 100%;
   border-radius: 50%;
-  transition: background 0.5s ease;
-  mask: radial-gradient(transparent 58%, black 60%);
+  background: #fff;
+  box-shadow: var(--shadow-float); /* 浮起感 */
+  border: 10rpx solid #fff;
+}
+.ring-track {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  border-radius: 50%;
+  border: 30rpx solid var(--c-bg); /* 浅灰底轨 */
+  box-sizing: border-box;
+}
+.ring-progress {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  border-radius: 50%;
+  /* 遮罩实现环形 */
   -webkit-mask: radial-gradient(transparent 58%, black 60%);
-  background: conic-gradient(var(--c-action) calc(var(--ringProgress, 0) * 1%), #f0f0f0 0%);
+  mask: radial-gradient(transparent 58%, black 60%);
 }
-
 .ring-inner {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 2;
 }
 
-.inner-content {
-  text-align: center;
-}
+/* 统计行 */
+.stats-row { display: flex; padding: 0 16rpx; }
+.stat-item { flex: 1; text-align: center; margin: 0 16rpx; }
 
-.inner-content .count {
-  font-size: 100rpx;
-  font-weight: 900;
-  line-height: 1;
-  display: block;
-  color: var(--c-text-main);
-}
-
-.inner-content .label {
-  font-size: 24rpx;
-  color: var(--c-text-sub);
-  font-weight: bold;
-  letter-spacing: 2rpx;
-  text-transform: uppercase;
-}
-
-.btn-3d-green {
-  background: var(--c-action);
-  color: #fff;
-  font-size: 36rpx;
-  font-weight: 900;
-  letter-spacing: 2rpx;
-  padding: 24rpx 100rpx;
-  border-radius: 40rpx;
-  border: none;
-  box-shadow: var(--shadow-btn-green);
-  z-index: 10;
-  transition: transform 0.1s;
-}
-
-.btn-3d-green:active {
-  transform: translateY(10rpx);
-  box-shadow: none;
-}
-
-.section-stats {
-  padding: 0 40rpx;
-}
-
-.stat-card {
-  width: 47%;
-  padding: 24rpx;
-  border-radius: var(--r-lg);
-  display: flex;
-  align-items: center;
-  border: 4rpx solid rgba(0, 0, 0, 0.05);
-}
-
-.stat-card .icon-box {
-  font-size: 48rpx;
-  margin-right: 16rpx;
-}
-
-.stat-card .val {
-  font-size: 36rpx;
-  font-weight: 900;
-  color: var(--c-text-main);
-}
-
-.stat-card .lbl {
-  font-size: 22rpx;
-  color: var(--c-text-sub);
-  font-weight: bold;
-  text-transform: uppercase;
-}
-
-.yellow-theme {
-  background: var(--c-energy-light);
-  border-color: var(--c-energy);
-}
-
-.purple-theme {
-  background: var(--c-knowledge-light);
-  border-color: var(--c-knowledge);
-}
-
+/* 榜单样式 (保留原有的) */
 .rank-card {
   background: #ffffff;
   border-radius: 24rpx;
-  padding: 28rpx 24rpx;
-  margin-bottom: 32rpx;
+  padding: 28rpx 32rpx;
+  margin: 24rpx 32rpx;
+  border: var(--border-base);
+  box-shadow: var(--shadow-card);
 }
 
 .rank-title {
   font-size: 28rpx;
   font-weight: 700;
-  color: #1d2129;
-  margin-bottom: 16rpx;
+  color: var(--c-text-title);
+  margin-bottom: 24rpx;
 }
 
 .rank-list {
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
+  gap: 16rpx;
 }
 
 .rank-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12rpx 8rpx;
+  padding: 16rpx;
   border-radius: 16rpx;
-  background: #f7f8fa;
+  background: var(--c-bg);
 }
 
 .rank-left {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: 16rpx;
   min-width: 0;
 }
 
@@ -189,15 +82,15 @@
   width: 36rpx;
   text-align: center;
   font-weight: 800;
-  color: #4e5969;
+  color: var(--c-text-body);
 }
 
 .rank-avatar {
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 24rpx;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 28rpx;
   overflow: hidden;
-  background: #e5e7eb;
+  background: var(--c-border);
   flex-shrink: 0;
 }
 
@@ -213,27 +106,27 @@
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  color: #111827;
+  color: var(--c-text-title);
 }
 
 .rank-name {
   font-size: 26rpx;
-  color: #1d2129;
+  color: var(--c-text-title);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 320rpx;
+  max-width: 280rpx;
 }
 
 .rank-xp {
   font-size: 26rpx;
   font-weight: 800;
-  color: #0052d9;
+  color: var(--c-primary);
 }
 
 .rank-me {
-  margin-top: 16rpx;
+  margin-top: 20rpx;
   font-size: 24rpx;
-  color: #86909c;
+  color: var(--c-text-light);
   text-align: right;
 }
