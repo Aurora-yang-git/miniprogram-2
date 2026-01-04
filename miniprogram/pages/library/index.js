@@ -1,57 +1,316 @@
-import { MOCK_DECKS } from '../../utils/mock-data';
+import { uploadImage, analyzeImage } from '../../services/ocr'
+import { generateCardsByDeepSeek } from '../../services/ai'
+import { createCard } from '../../services/cards'
+
+function getAppUiState() {
+  try {
+    const app = getApp()
+    const gd = app && app.globalData ? app.globalData : {}
+    return {
+      theme: app && typeof app.getTheme === 'function' ? app.getTheme() : 'light',
+      statusBarRpx: typeof gd.statusBarRpx === 'number' ? gd.statusBarRpx : 0,
+      safeBottomRpx: typeof gd.safeBottomRpx === 'number' ? gd.safeBottomRpx : 0
+    }
+  } catch (e) {
+    return { theme: 'light', statusBarRpx: 0, safeBottomRpx: 0 }
+  }
+}
+
+function stepToIndex(step) {
+  if (step === 'input') return 1
+  if (step === 'generate' || step === 'complete') return 2
+  return 0
+}
 
 Page({
   data: {
-    decks: []
+    theme: 'light',
+    statusBarRpx: 0,
+    safeBottomRpx: 0,
+
+    step: 'mode',
+    stepLabels: ['Mode', 'Input', 'Generate'],
+    currentStepIndex: 0,
+
+    selectedMode: 'scan',
+    modes: [
+      { id: 'scan', icon: 'scan', label: 'Scan Photo', desc: 'Take a photo of notes or textbook' },
+      { id: 'upload', icon: 'upload', label: 'Upload File', desc: 'PDF, images, or documents' },
+      { id: 'text', icon: 'file', label: 'Paste Text', desc: 'Copy and paste your content' }
+    ],
+
+    deckTitle: '',
+    inputText: '',
+
+    pickedImages: [],
+
+    isGenerating: false,
+    step3Phase: 'idle', // idle | ocr | generate | write | done
+    step3Title: '',
+    step3Subtitle: '',
+    ocrDone: 0,
+    ocrTotal: 0,
+    writeDone: 0,
+    writeTotal: 0,
+    generatedCount: 0
   },
 
-  onShow() {
-    this.loadDecks();
-  },
-
-  loadDecks() {
-    // 实际开发中这里调用 API 从云数据库获取
-    this.setData({ decks: MOCK_DECKS });
-  },
-
-  // 点击进入卡组详情
-  onEnterDeck(e) {
-    const deckId = e.currentTarget.dataset.id;
-    if (!deckId) {
-      wx.showToast({ title: '卡组信息缺失', icon: 'none' })
-      return
-    }
-    wx.navigateTo({
-      url: `/pages/library/detail?deckId=${deckId}`,
-      fail: (err) => {
-        console.error('navigateTo deck detail failed', err)
-        wx.showToast({ title: '打开卡组失败', icon: 'none' })
-      }
+  onLoad() {
+    const ui = getAppUiState()
+    this.setData({
+      theme: ui.theme,
+      statusBarRpx: ui.statusBarRpx,
+      safeBottomRpx: ui.safeBottomRpx
     })
   },
 
-  // 新建卡组
-  onCreateDeck() {
-    wx.showModal({
-      title: '新建卡组',
-      editable: true,
-      placeholderText: '请输入卡组名称 (如: 考研政治)',
-      success: (res) => {
-        if (res.confirm && res.content) {
-          const newDeck = {
-            id: `deck_${Date.now()}`,
-            title: res.content,
-            count: 0,
-            theme: 'blue', // 默认颜色
-            icon: 'book',
-            lastReview: '刚刚'
-          };
-          this.setData({
-            decks: [newDeck, ...this.data.decks]
-          });
-          wx.showToast({ title: '创建成功', icon: 'success' });
-        }
+  onShow() {
+    const ui = getAppUiState()
+    this.setData({ theme: ui.theme, statusBarRpx: ui.statusBarRpx, safeBottomRpx: ui.safeBottomRpx })
+
+    const tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null
+    if (tabBar && tabBar.setData) tabBar.setData({ selected: 1, theme: ui.theme })
+
+    this.hydrateInitialMode()
+  },
+
+  onUnload() {
+    if (this._timer) {
+      clearTimeout(this._timer)
+      this._timer = null
+    }
+  },
+
+  hydrateInitialMode() {
+    try {
+      const mode = wx.getStorageSync && wx.getStorageSync('createMode')
+      if (mode === 'scan' || mode === 'upload' || mode === 'text') {
+        this.setData({
+          selectedMode: mode,
+          step: 'input',
+          currentStepIndex: stepToIndex('input'),
+          pickedImages: [],
+          inputText: '',
+          isGenerating: false,
+          step3Phase: 'idle',
+          step3Title: '',
+          step3Subtitle: '',
+          ocrDone: 0,
+          ocrTotal: 0,
+          writeDone: 0,
+          writeTotal: 0,
+          generatedCount: 0
+        })
+        wx.setStorageSync && wx.setStorageSync('createMode', '')
       }
-    });
+    } catch (e) {
+      // ignore
+    }
+  },
+
+  onSelectMode(e) {
+    const id = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.id : ''
+    if (id !== 'scan' && id !== 'upload' && id !== 'text') return
+    this.setData({
+      selectedMode: id,
+      step: 'input',
+      currentStepIndex: stepToIndex('input'),
+      pickedImages: [],
+      inputText: '',
+      isGenerating: false,
+      step3Phase: 'idle',
+      step3Title: '',
+      step3Subtitle: '',
+      ocrDone: 0,
+      ocrTotal: 0,
+      writeDone: 0,
+      writeTotal: 0,
+      generatedCount: 0
+    })
+  },
+
+  onDeckTitleInput(e) {
+    const value = e && e.detail && typeof e.detail.value === 'string' ? e.detail.value : ''
+    this.setData({ deckTitle: value })
+  },
+
+  onInputText(e) {
+    const value = e && e.detail && typeof e.detail.value === 'string' ? e.detail.value : ''
+    this.setData({ inputText: value })
+  },
+
+  async onPickImage() {
+    const mode = this.data.selectedMode
+    if (mode !== 'scan' && mode !== 'upload') return
+    if (!wx.chooseImage) {
+      wx.showToast({ title: '当前版本不支持选择图片', icon: 'none' })
+      return
+    }
+
+    try {
+      const current = Array.isArray(this.data.pickedImages) ? this.data.pickedImages : []
+      const remaining = 9 - current.length
+      if (remaining <= 0) {
+        wx.showToast({ title: '最多选择 9 张图片', icon: 'none' })
+        return
+      }
+
+      const res = await new Promise((resolve, reject) => {
+        wx.chooseImage({
+          count: remaining,
+          sizeType: ['compressed'],
+          sourceType: mode === 'scan' ? ['camera', 'album'] : ['album', 'camera'],
+          success: resolve,
+          fail: reject
+        })
+      })
+      const paths = res && Array.isArray(res.tempFilePaths) ? res.tempFilePaths.filter(Boolean) : []
+      if (!paths.length) return
+
+      const merged = current.concat(paths).filter(Boolean)
+      const unique = Array.from(new Set(merged)).slice(0, 9)
+      this.setData({ pickedImages: unique })
+    } catch (e) {
+      console.error('pick image failed', e)
+      wx.showToast({ title: '选择图片失败', icon: 'none' })
+      }
+  },
+
+  onClearImages() {
+    this.setData({ pickedImages: [] })
+  },
+
+  async runOcrOnImages(paths) {
+    const list = Array.isArray(paths) ? paths.filter(Boolean) : []
+    if (!list.length) throw new Error('no images')
+
+    const texts = []
+    for (let i = 0; i < list.length; i += 1) {
+      const path = list[i]
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const fileID = await uploadImage(path)
+        // eslint-disable-next-line no-await-in-loop
+        const ret = await analyzeImage(fileID)
+        const text = ret && typeof ret.text === 'string' ? ret.text.trim() : ''
+        if (text) texts.push(text)
+      } catch (e) {
+        console.error('ocr single image failed', e)
+      } finally {
+        this.setData({ ocrDone: i + 1 })
+      }
+    }
+
+    const sourceText = texts.join('\n\n')
+    if (!sourceText.trim()) throw new Error('empty ocr text')
+    return sourceText
+  },
+
+  async onGenerate() {
+    const title = String(this.data.deckTitle || '').trim()
+    if (!title) return
+    if (this.data.isGenerating) return
+
+    let sourceText = ''
+    if (this.data.selectedMode === 'text') {
+      sourceText = String(this.data.inputText || '').trim()
+      if (!sourceText) {
+        wx.showToast({ title: '请先粘贴/输入内容', icon: 'none' })
+        return
+      }
+    } else {
+      const images = Array.isArray(this.data.pickedImages) ? this.data.pickedImages : []
+      if (!images.length) {
+        wx.showToast({ title: '请先选择图片', icon: 'none' })
+        return
+      }
+    }
+
+    try {
+      const ocrTotal = this.data.selectedMode === 'text'
+        ? 0
+        : (Array.isArray(this.data.pickedImages) ? this.data.pickedImages.length : 0)
+
+          this.setData({
+        step: 'generate',
+        currentStepIndex: stepToIndex('generate'),
+        isGenerating: true,
+        step3Phase: this.data.selectedMode === 'text' ? 'generate' : 'ocr',
+        step3Title: this.data.selectedMode === 'text' ? 'Generating cards...' : 'Extracting text...',
+        step3Subtitle: this.data.selectedMode === 'text'
+          ? 'AI is analyzing your content and creating knowledge cards'
+          : 'Uploading images and running OCR',
+        ocrDone: 0,
+        ocrTotal,
+        writeDone: 0,
+        writeTotal: 0,
+        generatedCount: 0
+      })
+
+      if (this.data.selectedMode !== 'text') {
+        sourceText = await this.runOcrOnImages(this.data.pickedImages)
+      }
+
+      this.setData({
+        step3Phase: 'generate',
+        step3Title: 'Generating cards...',
+        step3Subtitle: 'AI is creating knowledge cards from your content'
+      })
+
+      const cards = await generateCardsByDeepSeek(sourceText)
+      const total = Array.isArray(cards) ? cards.length : 0
+
+      this.setData({
+        step3Phase: 'write',
+        step3Title: 'Saving cards...',
+        step3Subtitle: 'Writing generated cards to database',
+        writeDone: 0,
+        writeTotal: total,
+        generatedCount: total
+      })
+
+      // sequential write to avoid hitting quota
+      for (let i = 0; i < total; i += 1) {
+        const c = cards[i]
+        const hint = c && typeof c.hint === 'string' ? c.hint.trim() : ''
+        const answer = hint ? `${c.answer}\n\nHint: ${hint}` : c.answer
+        // eslint-disable-next-line no-await-in-loop
+        await createCard({ deckTitle: title, question: c.question, answer, tags: c.tags })
+        this.setData({ writeDone: i + 1 })
+      }
+
+      wx.showToast({ title: `已生成并保存 ${total} 张卡片`, icon: 'success' })
+      this.setData({
+        step3Phase: 'done',
+        isGenerating: false,
+        step: 'complete',
+        currentStepIndex: stepToIndex('complete')
+      })
+    } catch (e) {
+      console.error('generate/write cards failed', e)
+      wx.showToast({ title: '生成失败，请重试', icon: 'none' })
+      this.setData({
+        isGenerating: false,
+        step3Phase: 'idle',
+        step3Title: '',
+        step3Subtitle: '',
+        step: 'input',
+        currentStepIndex: stepToIndex('input')
+      })
+    }
+  },
+
+  onGoHome() {
+    wx.switchTab({ url: '/pages/home/index' })
+  },
+
+  onToggleTheme() {
+    const app = getApp()
+    const next = app && typeof app.toggleTheme === 'function'
+      ? app.toggleTheme()
+      : (this.data.theme === 'dark' ? 'light' : 'dark')
+    this.setData({ theme: next })
+    const tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null
+    if (tabBar && tabBar.setData) tabBar.setData({ theme: next })
   }
-});
+})

@@ -1,0 +1,74 @@
+<view
+  class="lc-root {{theme === 'dark' ? 'lc-theme-dark' : ''}}"
+  style="--lc-status-bar: {{statusBarRpx}}rpx; --lc-safe-bottom: {{safeBottomRpx}}rpx;"
+>
+  <view class="lc-header">
+    <view class="lc-header-inner">
+      <text class="lc-header-title">LearnCards</text>
+      <button class="lc-icon-btn" bind:tap="onToggleTheme">
+        <text style="font-size: 34rpx; color: var(--lc-text-muted);">{{theme === 'dark' ? '☀' : '☾'}}</text>
+      </button>
+    </view>
+  </view>
+
+  <view class="lc-main">
+    <view class="lc-container">
+      <view class="title-block">
+        <view class="lc-h1">Leaderboard</view>
+        <view class="lc-p">Global ranking based on points and consistency</view>
+      </view>
+
+      <!-- Scoring Rules -->
+      <view class="rules-card">
+        <view class="rules-title">How Points Work</view>
+        <view class="rules-item">• Each card studied: +10 points</view>
+        <view class="rules-item">• Daily streak bonus: +5 points per day</view>
+        <view class="rules-item">• Weekly goal completion: +50 points</view>
+      </view>
+
+      <!-- Leaderboard List -->
+      <view class="list-card">
+        <view wx:if="{{isLoading}}" class="lc-inline-loading" style="padding: 48rpx 0;">
+          <view class="lc-mini-spinner" />
+          <text class="lc-p">Loading leaderboard...</text>
+        </view>
+
+        <block wx:if="{{!isLoading}}">
+          <block wx:for="{{leaderboard}}" wx:key="rank">
+            <view class="row {{item.isCurrentUser ? 'is-me' : ''}}">
+              <view class="rank-col">
+                <view wx:if="{{item.rank <= 3}}" class="rank-badge rank-{{item.rank}}">
+                  <t-icon name="star-filled" size="28rpx" color="#fff" />
+                </view>
+                <text wx:else class="rank-text">#{{item.rank}}</text>
+              </view>
+
+              <view class="name-col">
+                <text class="name {{item.isCurrentUser ? 'name-me' : ''}}">{{item.username}}</text>
+              </view>
+
+              <view class="stats-col">
+                <view class="stat">
+                  <t-icon name="arrow-up" size="24rpx" color="var(--lc-text-subtle)" />
+                  <text class="stat-text">{{item.points}}</text>
+                </view>
+                <view class="stat">
+                  <text class="stat-emoji">🔥</text>
+                  <text class="stat-text">{{item.streak}}</text>
+                </view>
+              </view>
+            </view>
+          </block>
+        </block>
+
+        <view wx:if="{{!isLoading && !leaderboard.length}}" class="lc-p" style="text-align:center; padding: 32rpx;">
+          No leaderboard data yet.
+        </view>
+      </view>
+
+      <view class="footer-note">Rankings update every 24 hours</view>
+    </view>
+  </view>
+</view>
+
+

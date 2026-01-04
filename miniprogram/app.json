@@ -2,28 +2,35 @@
   "pages": [
     "pages/home/index",    
     "pages/library/index",
+    "pages/goals/index",
+    "pages/leaderboard/index",
+    "pages/profile/index",
+
     "pages/library/detail",
-    "pages/profile/index",    
-    
     "pages/review/index",    
+    "pages/feynman/index",
     "pages/editor/index"     
   ],
-  "tabBar": {
-    "color": "#7A7E83",
-    "selectedColor": "#0052d9",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "white",
-    "list": [
-      { "pagePath": "pages/home/index", "text": "今日" },
-      { "pagePath": "pages/library/index", "text": "卡包" },
-      { "pagePath": "pages/profile/index", "text": "我的" }
-    ]
-  },
   "window": {
+    "navigationStyle": "custom",
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#fff",
-    "navigationBarTitleText": "知识卡片",
+    "navigationBarTitleText": "LearnCards",
     "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#737373",
+    "selectedColor": "#2563eb",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/home/index", "text": "Home" },
+      { "pagePath": "pages/library/index", "text": "Create" },
+      { "pagePath": "pages/goals/index", "text": "Goals" },
+      { "pagePath": "pages/leaderboard/index", "text": "Rank" },
+      { "pagePath": "pages/profile/index", "text": "Settings" }
+    ]
   },
   "usingComponents": {
     "t-button": "tdesign-miniprogram/button/button",
@@ -36,10 +43,12 @@
     "t-divider": "tdesign-miniprogram/divider/divider",
     "t-empty": "tdesign-miniprogram/empty/empty",
     "t-collapse": "tdesign-miniprogram/collapse/collapse",
-    "t-collapse-panel": "tdesign-miniprogram/collapse-panel/collapse-panel"
+    "t-collapse-panel": "tdesign-miniprogram/collapse-panel/collapse-panel",
+    "t-switch": "tdesign-miniprogram/switch/switch",
+    "t-avatar": "tdesign-miniprogram/avatar/avatar",
+    "t-search": "tdesign-miniprogram/search/search"
   },
   "sitemapLocation": "sitemap.json",
-
   "lazyCodeLoading": "requiredComponents",
   "entryPagePath": "pages/home/index"
 }

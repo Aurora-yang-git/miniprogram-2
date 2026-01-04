@@ -1,79 +1,185 @@
-<view class="page-container">
-  <t-navbar title="{{deckTitle}}" left-arrow bind:go-back="onBack" style="--td-navbar-bg-color: transparent;" />
-
-  <view class="search-bar">
-    <t-search
-      value="{{keyword}}"
-      placeholder="搜索此卡组"
-      clearable
-      bind:change="onSearchChange"
-    />
+<view
+  class="lc-root {{theme === 'dark' ? 'lc-theme-dark' : ''}}"
+  style="--lc-status-bar: {{statusBarRpx}}rpx; --lc-safe-bottom: {{safeBottomRpx}}rpx; --lc-tabbar-h: 0rpx;"
+>
+  <view class="lc-header">
+    <view class="lc-header-inner">
+      <text class="lc-header-title">LearnCards</text>
+      <button class="lc-icon-btn" bind:tap="onToggleTheme">
+        <text style="font-size: 34rpx; color: var(--lc-text-muted);">{{theme === 'dark' ? '☀' : '☾'}}</text>
+      </button>
+    </view>
   </view>
 
-  <scroll-view scroll-y class="card-list">
-    <block wx:for="{{displayCards}}" wx:key="id">
-      <view class="library-item" bind:tap="onCardTap" data-id="{{item.id}}">
-        <view class="item-content">
-          <view class="item-title">{{item.question}}</view>
-          <view class="item-tags" wx:if="{{item.tags && item.tags.length}}">
-            <view class="tag-box" wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this">
+  <view class="lc-main">
+    <view class="lc-container deck-container">
+      <!-- Back -->
+      <view class="back-btn" bind:tap="onBack">
+        <t-icon name="chevron-left" size="36rpx" color="var(--lc-text-muted)" />
+        <text class="back-text">Back</text>
+  </view>
+
+      <!-- Deck Header Card -->
+      <view class="deck-header-card">
+        <view class="deck-header-top">
+          <view class="deck-header-main">
+            <view class="deck-header-title">{{deck.title}}</view>
+            <view class="deck-tags">
+              <text
+                wx:for="{{deck.tags}}"
+                wx:for-item="tag"
+                wx:key="*this"
+                class="deck-tag"
+              >
               {{tag}}
+              </text>
+            </view>
+          </view>
+          <button class="study-btn" bind:tap="onStartStudy">
+            <t-icon name="play" size="28rpx" color="#fff" />
+            <text class="study-text">Study</text>
+          </button>
+        </view>
+
+        <view class="deck-progress">
+          <view class="deck-progress-row">
+            <text class="deck-sub">{{deckCards.length}} cards • {{deck.dueCount}} due</text>
+            <text class="deck-progress-value">{{deck.progress}}%</text>
+          </view>
+          <view class="lc-progress-track">
+            <view class="lc-progress-bar" style="width: {{deck.progress}}%;" />
             </view>
           </view>
         </view>
-        <view class="item-arrow">
-          <t-icon name="chevron-right" size="40rpx" color="var(--c-text-light)" />
+
+      <!-- Cards List -->
+      <view class="cards-section">
+        <view class="lc-section-title">Cards ({{deckCards.length}})</view>
+
+        <view wx:if="{{isLoadingDeck}}" class="lc-card empty-card">
+          <view class="lc-inline-loading" style="padding: 48rpx 0;">
+            <view class="lc-mini-spinner" />
+            <text class="lc-p">Loading cards...</text>
+          </view>
+        </view>
+
+        <view wx:elif="{{!deckCards.length}}" class="lc-card empty-card">
+          <view class="lc-p" style="text-align:center; margin-bottom: 24rpx;">
+            No cards yet. Add your first card to get started!
+          </view>
+          <button class="lc-btn lc-btn-primary" bind:tap="onOpenAddModal">
+            <t-icon name="add" size="36rpx" color="#fff" />
+            <text style="margin-left: 12rpx;">Add First Card</text>
+          </button>
+        </view>
+
+        <view wx:else class="cards-list">
+          <block wx:for="{{deckCards}}" wx:key="id">
+            <view class="card-item">
+              <view class="card-content">
+                <view class="card-label">Question</view>
+                <view class="card-q">{{item.question}}</view>
+                <view class="card-label" style="margin-top: 16rpx;">Answer</view>
+                <view class="card-a">{{item.answer}}</view>
+              </view>
+              <view class="card-actions">
+                <button class="icon-btn" catch:tap="onEditCard" data-id="{{item.id}}">
+                  <t-icon name="edit-1" size="28rpx" color="var(--lc-text-muted)" />
+                </button>
+                <button class="icon-btn danger" disabled="{{deletingId === item.id}}" catch:tap="onDeleteCard" data-id="{{item.id}}">
+                  <t-icon name="delete" size="28rpx" color="var(--lc-danger)" />
+                </button>
         </view>
       </view>
     </block>
+        </view>
+      </view>
+    </view>
+  </view>
 
-    <t-empty wx:if="{{!displayCards.length}}" icon="info-circle-filled" description="此卡组暂无卡片" />
-  </scroll-view>
+  <!-- Floating Add Button -->
+  <button wx:if="{{deckCards.length > 0}}" class="fab" bind:tap="onOpenAddModal">
+    <t-icon name="add" size="44rpx" color="#fff" />
+  </button>
 
-  <t-popup
-    visible="{{detailVisible}}"
-    placement="bottom"
-    bind:visible-change="onPopupClose"
-    custom-style="height: 85vh"
-  >
-    <view class="detail-container" wx:if="{{currentCard}}">
-      <view class="detail-header">
-        <view class="q-title">{{currentCard.question}}</view>
-        <t-icon wx:if="{{currentCard.sourceImages && currentCard.sourceImages.length}}" name="image" size="24" />
+  <!-- Add / Edit Card Modal -->
+  <view wx:if="{{modalVisible}}" class="lc-modal-overlay" catch:tap="onCloseModal">
+    <view class="lc-modal modal-max" catch:tap="noop">
+      <view class="lc-modal-header">
+        <text class="lc-modal-title">{{editingCardId ? 'Edit Card' : 'Add New Card'}}</text>
+        <button class="lc-icon-btn" catch:tap="onCloseModal">
+          <t-icon name="close" size="40rpx" color="var(--lc-text-muted)" />
+        </button>
       </view>
 
-      <scroll-view scroll-y class="detail-content">
-        <block wx:if="{{currentCard.sourceImageUrls && currentCard.sourceImageUrls.length}}">
-          <image wx:for="{{currentCard.sourceImageUrls}}" wx:key="index" class="detail-image" src="{{item}}" mode="widthFix" />
-        </block>
-        <block wx:for="{{currentCard.answerSections}}" wx:key="index">
-          <view class="section-block">
-            <view class="section-title">{{item.title || item.type}}</view>
-            <view wx:if="{{item.type === 'formula' && item.latex}}" class="formula-box">
-              {{item.latex}}
+      <!-- Mode Tabs -->
+      <view wx:if="{{!editingCardId}}" class="mode-tabs">
+        <view class="tab {{modalMode === 'manual' ? 'is-active' : ''}}" data-mode="manual" catch:tap="onChangeModalMode">
+          <t-icon name="edit-1" size="28rpx" color="{{modalMode === 'manual' ? '#fff' : 'var(--lc-text-muted)'}}" />
+          <text>Manual</text>
+        </view>
+        <view class="tab {{modalMode === 'scan' ? 'is-active' : ''}}" data-mode="scan" catch:tap="onChangeModalMode">
+          <t-icon name="scan" size="28rpx" color="{{modalMode === 'scan' ? '#fff' : 'var(--lc-text-muted)'}}" />
+          <text>Scan</text>
+        </view>
+        <view class="tab {{modalMode === 'upload' ? 'is-active' : ''}}" data-mode="upload" catch:tap="onChangeModalMode">
+          <t-icon name="upload" size="28rpx" color="{{modalMode === 'upload' ? '#fff' : 'var(--lc-text-muted)'}}" />
+          <text>Upload</text>
             </view>
-            <view wx:elif="{{item.content}}" class="text-content">
-              {{item.content}}
+        <view class="tab {{modalMode === 'paste' ? 'is-active' : ''}}" data-mode="paste" catch:tap="onChangeModalMode">
+          <t-icon name="file-paste" size="28rpx" color="{{modalMode === 'paste' ? '#fff' : 'var(--lc-text-muted)'}}" />
+          <text>Paste</text>
             </view>
-            <view wx:else class="text-muted">暂无内容</view>
           </view>
-          <t-divider />
+
+      <scroll-view scroll-y class="modal-scroll">
+        <view class="lc-modal-body">
+          <block wx:if="{{modalMode === 'manual' || modalMode === 'paste'}}">
+            <view class="field-label">Question</view>
+            <textarea
+              class="lc-input textarea"
+              value="{{modalQuestion}}"
+              placeholder="Enter the question here..."
+              placeholder-class="home-placeholder"
+              bindinput="onModalQuestionInput"
+            />
+
+            <view class="field-label" style="margin-top: 24rpx;">Answer</view>
+            <textarea
+              class="lc-input textarea"
+              value="{{modalAnswer}}"
+              placeholder="Enter the answer here..."
+              placeholder-class="home-placeholder"
+              bindinput="onModalAnswerInput"
+            />
         </block>
 
-        <view wx:if="{{currentCard.memoryHint}}" class="memory-hint">
-          <text class="hint-icon">💡</text>
-          <text class="hint-text">{{currentCard.memoryHint}}</text>
+          <view wx:elif="{{modalMode === 'scan'}}" class="coming-box">
+            <t-icon name="scan" size="96rpx" color="var(--lc-text-subtle)" />
+            <view class="coming-text">Scan a photo of your notes or textbook</view>
+            <button class="lc-btn lc-btn-primary" style="margin-top: 24rpx;">Open Camera</button>
+            <view class="coming-sub">Coming soon: AI-powered text extraction from images</view>
         </view>
 
-        <view class="review-actions">
-          <t-button theme="danger" variant="outline" block data-level="forget" bind:tap="onMemoryAction">忘记</t-button>
-          <t-button theme="primary" variant="outline" block data-level="remember" bind:tap="onMemoryAction">记得</t-button>
+          <view wx:elif="{{modalMode === 'upload'}}" class="coming-box">
+            <t-icon name="upload" size="96rpx" color="var(--lc-text-subtle)" />
+            <view class="coming-text">Upload a file to extract cards</view>
+            <button class="lc-btn lc-btn-primary" style="margin-top: 24rpx;">Choose File</button>
+            <view class="coming-sub">Supported: PDF, DOCX, TXT</view>
+          </view>
         </view>
       </scroll-view>
+
+      <view wx:if="{{modalMode === 'manual' || modalMode === 'paste'}}" class="lc-modal-footer">
+        <button class="lc-btn footer-btn-cancel" disabled="{{isSaving}}" catch:tap="onCloseModal">Cancel</button>
+        <button wx:if="{{!editingCardId}}" class="lc-btn lc-btn-primary" disabled="{{isSaving}}" catch:tap="onSaveAndAdd">
+          Save & Add Another
+        </button>
+        <button class="lc-btn lc-btn-primary" disabled="{{isSaving}}" catch:tap="onSaveClose">
+          <block wx:if="{{isSaving}}">Saving...</block>
+          <block wx:else>{{editingCardId ? 'Save Changes' : 'Save & Close'}}</block>
+        </button>
+      </view>
     </view>
-  </t-popup>
-
-  <t-fab icon="add" bind:click="onAddCard" aria-label="新建卡片" />
+    </view>
 </view>
-
-

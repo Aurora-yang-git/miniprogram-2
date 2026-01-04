@@ -1,61 +1,72 @@
-# 项目整体结构与模块职责（阶段化目标）
+# LearnCards 小程序架构说明（新 UI + 云开发数据联通）
 
-> 本文档用于约定后续所有开发遵循的目录结构、模块边界和 utils 设计原则，随着阶段推进可以逐步细化，但大方向保持不变。
+本文档描述当前小程序（`miniprogram/`）的目录结构、数据模型、关键数据流与云函数连接方式。目标是保证 **页面 UI 与业务逻辑解耦**、**数据全部来自云数据库**、并在 **不修改 `cloudfunctions/`** 的约束下仍能完成完整闭环。
 
-## 1. 顶层目录规划
+## 目录结构
 
 ```
 miniprogram-2/
-├─ app.js / app.json / app.wxss
-├─ project.config.json / sitemap.json
-├─ docs/                  # 设计与方案文档
-├─ utils/
-│  ├─ mock-data.js        # 阶段0：预置卡片数据
-│  ├─ api.js              # HTTP / 云函数封装（统一错误处理）
-│  ├─ config.js           # 云环境 & 模型资源等常量
-│  └─ formatters.js       # Markdown/LaTeX/标签等格式化工具
-├─ services/              # 业务逻辑层（与 UI 解耦）
-│  ├─ card-service.js     # 卡片 CRUD / review 状态更新 / 导出
-│  ├─ upload-service.js   # 单张/批量上传、任务状态轮询
-│  └─ review-service.js   # 间隔重复算法、任务生成、提醒
-├─ components/            # 可复用 UI 组件（answer section、卡片预览等）
-├─ pages/
-│  ├─ index/              # 上传入口，负责拍照/预览/发起生成
-│  ├─ cards/              # 卡片列表 + 详情 + 编辑
-│  ├─ upload-batch/       # 阶段1：批量上传与进度
-│  ├─ review/             # 阶段2：复习闭环（今日待复习、掌握度）
-│  └─ settings/           # （可选）订阅消息授权、账号设置
-├─ cloudfunctions/        # 若使用微信云函数，放 OCR/LLM/调度逻辑
-└─ miniprogram_npm/       # tdesign-miniprogram 等依赖
+├─ cloudfunctions/                 # 云函数（本方案不修改此目录）
+├─ docs/
+│  └─ architecture.md              # 本文档
+├─ miniprogram/
+│  ├─ app.js / app.json / app.wxss # 全局主题/自定义tabBar/样式token
+│  ├─ custom-tab-bar/              # 自定义底部导航（5入口）
+│  ├─ pages/
+│  │  ├─ home/                     # Home：搜索/筛选/Deck列表
+│  │  ├─ library/                  # Create：选择输入方式→生成→写库
+│  │  ├─ library/detail.*          # DeckDetail：卡片列表 + Add/Edit Modal
+│  │  ├─ review/                   # StudyMode：due卡片翻转学习 + Summary
+│  │  ├─ goals/                    # DailyGoals：目标/进度（读写 user_stats）
+│  │  ├─ leaderboard/              # Rank：调用 getGlobalRank
+│  │  ├─ profile/                  # Settings：用户统计/资料/开关/退出
+│  │  └─ editor/                   # 旧编辑器页（保留且不改）
+│  ├─ services/                    # 数据访问与业务服务层（页面不直连云能力）
+│  │  ├─ auth.js                   # openid 获取与缓存（login）
+│  │  ├─ cloud.js                  # 云函数统一封装（callFunction/callOkFunction）
+│  │  ├─ cards.js                  # cards CRUD/聚合/查询 due
+│  │  ├─ userStats.js              # user_stats 读取/写 dailyGoal/更新头像昵称
+│  │  ├─ ocr.js                    # 上传图片 + analyzeImage OCR
+│  │  ├─ ai.js                     # deepseek 生成卡片（复用 editor 的解析逻辑）
+│  │  └─ time.js                   # 时间格式化
+│  └─ utils/
+│     ├─ flashcard-config.js       # 集合名常量（不改）
+│     └─ config.js                 # 环境常量（不改）
+└─ ui/                             # 用于对齐 UI
 ```
 
-## 2. utils 目录规范
-1. **只放纯工具/无副作用模块**，不得混入服务层逻辑。
-2. `api.js` 统一封装 `wx.request` / `wx.cloud.callFunction`，其他模块通过 `services/*` 调用 API，页面不直接依赖 utils。
-3. 新工具函数需具备明确职责与单测范围，并在本文件或 README 内注明用途。
-4. 阶段 0 的 mock 数据集中在 `utils/mock-data.js`，后续切换到真实数据时，只需替换 `services/card-service` 的数据来源。
+## 数据模型（云数据库）
 
-## 3. 业务层与页面职责
-| 页面/模块        | 职责概述 |
-|------------------|----------|
-| `pages/index`    | 上传/拍照 → 画布预览 → 调 `upload-service` 发起 AI 生成；负责图像选择体验。 |
-| `pages/cards`    | 卡片列表、详情、编辑、记忆提示、复习按钮；数据来自 `card-service`。 |
-| `pages/upload-batch` | 批量上传与进度反馈；与 `upload-service` 的批处理接口交互。 |
-| `pages/review`   | 今日复习列表、掌握度选择、复习曲线；依赖 `review-service` 和订阅消息。 |
-| `services/card-service` | 管理卡片生命周期，读写卡片数据、更新 reviewStatus、导出 Markdown/LaTeX。 |
-| `services/upload-service` | 单张/批量上传、OCR/LLM 任务调度、结果轮询。 |
-| `services/review-service` | 间隔重复算法、生成/更新每日任务、触发提醒。 |
+### `cards`（collection: `cards`）
+- **所有卡片均以用户隔离**：每条记录带系统字段 `_openid`。\n- **核心字段**（由前端写入/更新）：\n  - `deckTitle`: string（用于分组为 Deck；缺失/空 → 视为 `Inbox`）\n  - `question`: string\n  - `answer`: string\n  - `tags`: string[]（0-5）\n  - `createdAt` / `updatedAt`: `serverDate`\n- **复习字段**（由云函数 `submitReview` 写入/更新）：\n  - `nextReviewAt`: number (ms)\n  - `lastReviewedAt`: number (ms)\n  - `srsEF` / `srsInterval` / `srsReps`\n- **可选字段**（兼容旧数据/编辑器页）：\n  - `answerSections`, `sourceImage`, `sourceImages` 等\n+
+### `user_stats`（collection: `user_stats`）
+- **用户维度统计**：每条记录带 `_openid`。\n- 云函数 `submitReview` 会维护：\n  - `xp`, `dailyXp`, `streak`, `studiedToday`, `lastStudyDate`, `totalReviewed`\n- 前端会维护：\n  - `dailyGoal`（Goals页）\n  - `nickname`, `avatarUrl`（Settings/Profile 授权后写入，供排行榜展示）\n+
+## Deck 分组策略（不新增 `decks` 集合）
+由于不新增 `decks` 集合，Deck 完全由 `cards.deckTitle` 聚合得出：\n- **Deck 标识**：`deckTitle`（string）\n- **Inbox**：`deckTitle` 缺失/空/`Inbox` → 归为同一组\n- **统计字段（前端计算）**：\n  - `totalCards`: 该 deck 下 cards 数量\n  - `dueCount`: `nextReviewAt` 缺失或 `<= now` 的数量\n  - `progress`: \(100 - dueCount/totalCards\) 粗略百分比（用于 UI 进度条）\n  - `lastStudied`: `lastReviewedAt` 最大值转相对时间\n+
+## 云函数连接（不改云函数）
+前端通过 `[miniprogram/services/cloud.js](../miniprogram/services/cloud.js)` 统一调用：\n- `login`：返回 `openid`（用于前端查询 `_openid`）\n- `analyzeImage`：输入 `fileID`，返回 OCR `text`\n- `submitReview`：输入 `cardId` + `result(remember/forget)`，更新 `cards` 的 SRS 字段并更新 `user_stats`\n- `getGlobalRank`：返回 `top`（按 xp 排序）和 `me`（包含 rank）\n\n注意：`getGlobalRank` 的返回目前不包含 streak；由于不改云函数，排行榜页展示 streak 为 `-`。\n+
+## 关键数据流
 
-## 4. 阶段化扩展对照
-- **阶段 0**：`pages/index` + `pages/cards` + `utils/mock-data`。占位接口在 `services/card-service`/`upload-service` 中实现 mock。
-- **阶段 1**：新增 `pages/upload-batch`、扩展 `upload-service` 支持批任务、`card-service` 支持分页/单元筛选。
-- **阶段 2**：新增 `pages/review` 与 `review-service`，实现今日复习、掌握度记录、订阅消息。
-- **阶段 3**：增强 `card-service`/`pages/cards`，显示 AI 生成轮次、质量说明、展开例题等。
+```mermaid
+flowchart TD
+  HomePage[HomePage] -->|query_cards_by_openid| CardsCollection[cards]
+  CreatePage[CreatePage] -->|chooseImage| LocalImage[local_image]
+  CreatePage -->|uploadFile| CloudStorage[cloud_storage]
+  CreatePage -->|call_analyzeImage| AnalyzeImageFn[analyzeImage_fn]
+  AnalyzeImageFn -->|ocr_text| CreatePage
+  CreatePage -->|deepseek_generate_cards| DeepSeekAI[deepseek_ai]
+  CreatePage -->|write_cards(deckTitle)| CardsCollection
+  DeckDetailPage[DeckDetailPage] -->|query_cards_by_deckTitle| CardsCollection
+  ReviewPage[ReviewPage] -->|query_due_cards_by_openid| CardsCollection
+  ReviewPage -->|call_submitReview| SubmitReviewFn[submitReview_fn]
+  SubmitReviewFn -->|update_srs_nextReviewAt| CardsCollection
+  SubmitReviewFn -->|update_xp_streak_dailyXp| UserStats[user_stats]
+  GoalsPage[GoalsPage] -->|read_write_dailyGoal| UserStats
+  LeaderboardPage[LeaderboardPage] -->|call_getGlobalRank| GetGlobalRankFn[getGlobalRank_fn]
+  GetGlobalRankFn -->|top_me_rank| LeaderboardPage
+  SettingsPage[SettingsPage] -->|read_user_stats| UserStats
+  SettingsPage -->|update_nickname_avatar| UserStats
+```
 
-## 5. 协作约定
-1. Figma → Vibecoding → Windsurf 流程，组件命名和交互以 Figma 为准。
-2. 所有页面使用 TDesign 组件库；在各自 `index.json` 中声明 `usingComponents`。
-3. 日志与埋点由 `services/*` 负责上报，页面只负责触发。
-4. 新模块需在此文档更新结构说明，防止 utils 再次堆积无序逻辑。
-
-> 记住：utils 只放“纯工具”，业务放 services，数据流由 services → pages，确保后续扩展（批量、复习、订阅消息）依旧清晰易维护。
+## 运行与权限要点
+- **云能力初始化**：`app.js` 中 `wx.cloud.init({ env })`。\n- **读写隔离**：前端查询 cards/user_stats 都使用 `_openid` 过滤；跨用户排行榜仅通过云函数拿到。\n- **可扩展点**：若未来允许改云函数，可在 `getGlobalRank` 返回中补充 `streak`，并支持 Deck 邻居排名等。 

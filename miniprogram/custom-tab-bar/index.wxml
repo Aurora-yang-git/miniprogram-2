@@ -1,0 +1,22 @@
+<view class="lc-tabbar {{theme === 'dark' ? 'lc-theme-dark' : ''}}" style="padding-bottom: {{safeBottomRpx}}rpx;">
+  <view class="lc-tabbar-inner">
+    <block wx:for="{{list}}" wx:key="pagePath">
+      <view
+        class="lc-tab-item {{selected === index ? 'is-active' : ''}}"
+        data-index="{{index}}"
+        data-path="{{item.pagePath}}"
+        bind:tap="onTabItemTap"
+      >
+        <t-icon
+          name="{{item.icon}}"
+          size="40rpx"
+          color="{{selected === index ? 'var(--lc-primary)' : 'var(--lc-text-muted)'}}"
+        />
+        <text class="lc-tab-label">{{item.text}}</text>
+      </view>
+    </block>
+  </view>
+</view>
+
+
+

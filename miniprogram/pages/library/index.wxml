@@ -1,37 +1,163 @@
-<view class="page-container">
-  <t-navbar title="我的书架" left-arrow="{{false}}" style="--td-navbar-bg-color: transparent;" />
-
-  <view class="library-header">
-    <view class="text-h2">共 {{decks.length}} 个卡组</view>
-    <view class="text-caption">点击卡组开始学习</view>
+<view
+  class="lc-root {{theme === 'dark' ? 'lc-theme-dark' : ''}}"
+  style="--lc-status-bar: {{statusBarRpx}}rpx; --lc-safe-bottom: {{safeBottomRpx}}rpx;"
+>
+  <!-- Fixed Header (matches ui/Layout) -->
+  <view class="lc-header">
+    <view class="lc-header-inner">
+      <text class="lc-header-title">LearnCards</text>
+      <button class="lc-icon-btn" bind:tap="onToggleTheme">
+        <text style="font-size: 34rpx; color: var(--lc-text-muted);">{{theme === 'dark' ? '☀' : '☾'}}</text>
+      </button>
+    </view>
   </view>
 
-  <view class="deck-grid">
-    <view class="deck-item add-new" bind:tap="onCreateDeck">
-      <view class="dashed-box">
-        <t-icon name="add" size="64rpx" color="var(--c-text-light)" />
-        <text class="add-text">新建卡组</text>
+  <view class="lc-main">
+    <view class="lc-container create-container">
+      <view class="create-title-block">
+        <view class="lc-h1">Create New Deck</view>
+        <view class="lc-p">AI will generate knowledge cards from your content</view>
       </view>
-    </view>
 
-    <block wx:for="{{decks}}" wx:key="id">
-      <view class="deck-item" bind:tap="onEnterDeck" data-id="{{item.id}}">
-        
-        <view class="card-stack theme-{{item.theme}}">
-          <view class="stack-main">
-            <view class="deck-icon">
-              <t-icon name="{{item.icon}}" size="48rpx" />
-            </view>
-            <view class="deck-info">
-              <view class="deck-title">{{item.title}}</view>
-              <view class="deck-meta">{{item.count}} 张卡片 · {{item.lastReview}}</view>
+      <!-- Step Indicator -->
+      <view class="step-row">
+        <block wx:for="{{stepLabels}}" wx:key="*this">
+          <view class="step-item">
+            <view class="step-line {{index <= currentStepIndex ? 'is-active' : ''}}" />
+            <view class="step-dot {{index <= currentStepIndex ? 'is-active' : ''}}">
+              {{index + 1}}
             </view>
           </view>
-          
+        </block>
+      </view>
+
+      <!-- Mode Selection -->
+      <view wx:if="{{step === 'mode'}}" class="create-section">
+        <view class="create-section-title">Choose input method</view>
+        <view class="mode-list">
+          <view
+            wx:for="{{modes}}"
+            wx:key="id"
+            class="mode-item"
+            data-id="{{item.id}}"
+            bind:tap="onSelectMode"
+          >
+            <view class="mode-icon">
+              <t-icon name="{{item.icon}}" size="48rpx" color="var(--lc-primary)" />
+            </view>
+            <view class="mode-info">
+              <view class="mode-label">{{item.label}}</view>
+              <view class="mode-desc">{{item.desc}}</view>
+            </view>
+          </view>
         </view>
       </view>
-    </block>
-  </view>
 
-  <view style="height: 100rpx;"></view>
+      <!-- Input Step -->
+      <view wx:elif="{{step === 'input'}}" class="create-section">
+        <view class="field-block">
+          <view class="field-label">Deck Title</view>
+          <input
+            class="lc-input"
+            placeholder="e.g., Quantum Mechanics Chapter 5"
+            placeholder-class="home-placeholder"
+            value="{{deckTitle}}"
+            bindinput="onDeckTitleInput"
+          />
+        </view>
+
+        <view wx:if="{{selectedMode === 'text'}}" class="field-block">
+          <view class="field-label">Content</view>
+          <textarea
+            class="lc-input textarea"
+            placeholder="Paste your text content here..."
+            placeholder-class="home-placeholder"
+            value="{{inputText}}"
+            bindinput="onInputText"
+          />
+        </view>
+
+        <view
+          wx:elif="{{selectedMode === 'scan' || selectedMode === 'upload'}}"
+          class="upload-box"
+          bind:tap="onPickImage"
+        >
+          <t-icon name="{{selectedMode === 'scan' ? 'scan' : 'upload'}}" size="96rpx" color="var(--lc-text-subtle)" />
+          <view class="upload-title">{{selectedMode === 'scan' ? 'Take a photo' : 'Click to upload'}}</view>
+          <view class="upload-sub">{{selectedMode === 'scan' ? 'or select from gallery' : 'or drag and drop files here'}}</view>
+          <view wx:if="{{pickedImages.length}}" class="upload-picked">
+            <text>Selected: {{pickedImages.length}} images</text>
+            <text class="upload-clear" catch:tap="onClearImages">Clear</text>
+          </view>
+          <view wx:else class="upload-picked">Up to 9 images</view>
+        </view>
+
+        <button
+          class="lc-btn lc-btn-primary create-btn"
+          disabled="{{!deckTitle || (selectedMode === 'text' ? !inputText : pickedImages.length === 0)}}"
+          bind:tap="onGenerate"
+        >
+          <t-icon name="add" size="36rpx" color="#fff" />
+          <text style="margin-left: 12rpx;">Generate Cards</text>
+        </button>
+    </view>
+
+      <!-- Generate Step -->
+      <view wx:elif="{{step === 'generate'}}" class="create-section generate-wrap">
+        <view class="center">
+          <view class="spinner" />
+          <view class="generate-title">{{step3Title}}</view>
+          <view class="lc-p">{{step3Subtitle}}</view>
+        </view>
+
+        <view class="lc-card generate-card">
+          <view class="progress-row">
+            <view wx:if="{{ocrTotal === 0}}" class="check-dot">✓</view>
+            <view wx:elif="{{ocrDone >= ocrTotal}}" class="check-dot">✓</view>
+            <view wx:elif="{{step3Phase === 'ocr'}}" class="pulse-dot">
+              <view class="mini-spinner" />
+            </view>
+            <view wx:else class="idle-dot" />
+            <view class="progress-text">
+              <block wx:if="{{ocrTotal === 0}}">Content ready</block>
+              <block wx:else>Extracting text {{ocrDone}}/{{ocrTotal}}</block>
+            </view>
+          </view>
+          <view class="progress-row">
+            <view wx:if="{{writeTotal > 0}}" class="check-dot">✓</view>
+            <view wx:elif="{{step3Phase === 'generate'}}" class="pulse-dot">
+              <view class="mini-spinner" />
+            </view>
+            <view wx:else class="idle-dot" />
+            <view class="progress-text">Generating cards...</view>
+          </view>
+          <view class="progress-row">
+            <view wx:if="{{writeTotal > 0 && writeDone >= writeTotal}}" class="check-dot">✓</view>
+            <view wx:elif="{{step3Phase === 'write'}}" class="pulse-dot">
+              <view class="mini-spinner" />
+            </view>
+            <view wx:else class="idle-dot" />
+            <view class="progress-text">
+              <block wx:if="{{writeTotal > 0}}">Saving {{writeDone}}/{{writeTotal}}</block>
+              <block wx:else>Waiting to save</block>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- Complete Step -->
+      <view wx:elif="{{step === 'complete'}}" class="create-section generate-wrap">
+        <view class="center">
+          <view class="success-icon">✓</view>
+          <view class="generate-title">Cards Generated!</view>
+          <view class="lc-p">Your knowledge cards are ready to use</view>
+        </view>
+
+        <button class="lc-btn lc-btn-primary create-btn" bind:tap="onGoHome">
+          <t-icon name="home" size="36rpx" color="#fff" />
+          <text style="margin-left: 12rpx;">Go Home</text>
+        </button>
+      </view>
+    </view>
+  </view>
 </view>

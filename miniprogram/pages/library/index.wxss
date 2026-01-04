@@ -1,131 +1,291 @@
-/* 页面布局 */
-.library-header {
-  padding: 20rpx 40rpx;
+.create-container {
+  padding-top: 48rpx;
 }
 
-/* 网格布局：两列 */
-.deck-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr; /* 两列等宽 */
-  gap: 32rpx; /* 间距 */
-  padding: 20rpx 32rpx;
+.create-title-block {
+  margin-bottom: 40rpx;
 }
 
-/* --- 新建卡组 (虚线框) --- */
-.deck-item.add-new {
-  height: 360rpx;
-}
-.dashed-box {
-  width: 100%; height: 100%;
-  border: 4rpx dashed var(--c-border);
-  border-radius: var(--r-base);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.5);
-  transition: all 0.1s;
-}
-.dashed-box:active { background: rgba(0,0,0,0.05); }
-.add-text {
-  font-size: 28rpx; color: var(--c-text-light); font-weight: 700;
-  margin-top: 16rpx;
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 48rpx;
 }
 
-/* --- 卡片堆叠核心样式 (Card Stack) --- */
-.deck-item {
-  position: relative;
-  height: 360rpx; /* 固定高度 */
-  z-index: 1;
+.step-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
 }
 
-.card-stack {
-  position: relative;
-  width: 100%; height: 100%;
+.step-line {
+  flex: 1;
+  height: 8rpx;
+  border-radius: var(--lc-radius-full);
+  background: var(--lc-border);
 }
 
-/* 1. 最底下的那张纸 (伪元素) */
-.card-stack::before {
-  content: '';
-  position: absolute;
-  top: 12rpx; left: 12rpx; right: -12rpx; bottom: -12rpx; /* 向右下偏移 */
-  background: #fff;
-  border: 2rpx solid var(--c-text-title); /* 黑色描边 */
-  border-radius: var(--r-base);
-  z-index: -2;
-  /* 稍微旋转一点，增加自然感 */
-  transform: rotate(3deg);
-  opacity: 0.5;
+.step-line.is-active {
+  background: var(--lc-primary);
 }
 
-/* 2. 中间的那张纸 (伪元素) */
-.card-stack::after {
-  content: '';
-  position: absolute;
-  top: 6rpx; left: 6rpx; right: -6rpx; bottom: -6rpx;
-  background: #fff;
-  border: 2rpx solid var(--c-text-title);
-  border-radius: var(--r-base);
-  z-index: -1;
-  transform: rotate(1.5deg);
+.step-dot {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: var(--lc-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  font-weight: 600;
+  background: var(--lc-border);
+  color: var(--lc-text-muted);
 }
 
-/* 3. 最上面的主卡片 */
-.stack-main {
-  position: relative;
-  width: 100%; height: 100%;
-  background: #fff;
-  border: 4rpx solid var(--c-text-title); /* 粗边框 */
-  border-radius: var(--r-base);
-  padding: 32rpx;
-  box-sizing: border-box;
-  display: flex; flex-direction: column; justify-content: space-between;
-  transition: transform 0.1s;
-  /* 加上硬投影 */
-  box-shadow: 4rpx 4rpx 0 rgba(0,0,0,0.1); 
+.step-dot.is-active {
+  background: var(--lc-primary);
+  color: #fff;
 }
 
-/* 点击时的按压效果 */
-.deck-item:active .stack-main {
-  transform: translate(6rpx, 6rpx); /* 向下按 */
-}
-.deck-item:active .card-stack::before,
-.deck-item:active .card-stack::after {
-  transform: none; /* 收起散开的纸 */
-  transition: transform 0.1s;
+.create-section {
+  margin-top: 24rpx;
 }
 
-/* --- 卡片内部内容 --- */
-.deck-icon {
-  width: 80rpx; height: 80rpx;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  border: 2rpx solid var(--c-text-title);
+.create-section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--lc-text);
   margin-bottom: 24rpx;
 }
 
-.deck-title {
-  font-size: 32rpx; font-weight: 800; color: var(--c-text-title);
-  margin-bottom: 12rpx;
-  /* 限制两行 */
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+.mode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
 }
 
-.deck-meta {
-  font-size: 22rpx; color: var(--c-text-light); font-weight: 600;
+.mode-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 24rpx;
+  padding: 32rpx;
+  background: var(--lc-surface);
+  border: 2rpx solid var(--lc-border);
+  border-radius: var(--lc-radius-xl);
+  box-sizing: border-box;
 }
 
-/* --- 颜色主题 (Academic Pop) --- */
-/* 蓝色主题 */
-.theme-blue .stack-main { background: var(--c-primary-light); }
-.theme-blue .deck-icon { background: var(--c-primary); color: #fff; }
+.mode-item:active {
+  border-color: var(--lc-primary);
+}
 
-/* 橙色主题 */
-.theme-orange .stack-main { background: var(--c-accent-light); }
-.theme-orange .deck-icon { background: var(--c-accent); color: #fff; }
+.mode-icon {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--lc-radius-lg);
+  background: var(--lc-primary-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 
-/* 绿色主题 */
-.theme-green .stack-main { background: #E3F9E5; }
-.theme-green .deck-icon { background: var(--c-success); color: #fff; }
+.mode-label {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--lc-text);
+  margin-bottom: 8rpx;
+}
 
-/* 紫色主题 */
-.theme-purple .stack-main { background: #F3E5F5; }
-.theme-purple .deck-icon { background: #9C27B0; color: #fff; }
+.mode-desc {
+  font-size: 24rpx;
+  color: var(--lc-text-muted);
+  line-height: 1.6;
+}
+
+.field-block {
+  margin-bottom: 32rpx;
+}
+
+.field-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--lc-text);
+  margin-bottom: 16rpx;
+}
+
+.textarea {
+  min-height: 360rpx;
+  padding-top: 24rpx;
+  padding-bottom: 24rpx;
+}
+
+.upload-box {
+  background: var(--lc-surface);
+  border: 4rpx dashed var(--lc-border-strong);
+  border-radius: var(--lc-radius-xl);
+  padding: 96rpx 32rpx;
+  text-align: center;
+  box-sizing: border-box;
+  margin-bottom: 32rpx;
+}
+
+.upload-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--lc-text);
+  margin-top: 24rpx;
+  margin-bottom: 8rpx;
+}
+
+.upload-sub {
+  font-size: 24rpx;
+  color: var(--lc-text-muted);
+}
+
+.upload-picked {
+  margin-top: 20rpx;
+  font-size: 22rpx;
+  color: var(--lc-text-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+}
+
+.upload-clear {
+  color: var(--lc-primary);
+  font-weight: 600;
+}
+
+.upload-clear:active {
+  opacity: 0.7;
+}
+
+.create-btn {
+  width: 100%;
+  margin-top: 24rpx;
+}
+
+.create-btn[disabled] {
+  opacity: 0.5;
+}
+
+.generate-wrap {
+  padding-top: 24rpx;
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16rpx;
+  margin: 32rpx 0;
+}
+
+.spinner {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: var(--lc-radius-full);
+  border: 10rpx solid var(--lc-border);
+  border-top-color: var(--lc-primary);
+  animation: spin 1s linear infinite;
+}
+
+.generate-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--lc-text);
+}
+
+.generate-card {
+  padding: 32rpx;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 0;
+}
+
+.check-dot {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: var(--lc-radius-full);
+  background: var(--lc-success);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  flex-shrink: 0;
+}
+
+.pulse-dot {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: var(--lc-radius-full);
+  background: var(--lc-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.idle-dot {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: var(--lc-radius-full);
+  background: var(--lc-border);
+  flex-shrink: 0;
+}
+
+.mini-spinner {
+  width: 24rpx;
+  height: 24rpx;
+  border-radius: var(--lc-radius-full);
+  border: 4rpx solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+}
+
+.progress-text {
+  font-size: 24rpx;
+  color: var(--lc-text-muted);
+}
+
+.success-icon {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: var(--lc-radius-full);
+  background: var(--lc-success);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64rpx;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

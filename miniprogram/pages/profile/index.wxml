@@ -1,62 +1,119 @@
-<view class="page-container">
-  <t-navbar title="" left-arrow="{{false}}" style="--td-navbar-bg-color: transparent;" />
-
-  <view class="profile-header" catch:tap="onRequestUserProfile">
-    <view class="avatar-ring">
-      <t-avatar image="{{userInfo.avatarUrl}}" size="large" />
-      <view class="level-badge">Lv.{{level}} {{levelTitle}}</view>
-    </view>
-    <view class="user-name">{{userInfo.nickName || '微信用户'}}</view>
-    <view class="user-id">UID: {{uid}} · 加入第 {{joinDays}} 天</view>
-  </view>
-
-  <view class="stats-grid">
-    <view class="stat-box blue">
-      <view class="label">记忆库</view>
-      <view class="value">{{cardCount}}</view>
-      <view class="icon">🧠</view>
-    </view>
-    <view class="stat-box orange">
-      <view class="label">专注时</view>
-      <view class="value">{{focusHours}}<text class="unit">h</text></view>
-      <view class="icon">⏱️</view>
-    </view>
-    <view class="stat-box green">
-      <view class="label">最高连胜</view>
-      <view class="value">{{streak}}<text class="unit">天</text></view>
-      <view class="icon">🔥</view>
+<view
+  class="lc-root {{theme === 'dark' ? 'lc-theme-dark' : ''}}"
+  style="--lc-status-bar: {{statusBarRpx}}rpx; --lc-safe-bottom: {{safeBottomRpx}}rpx;"
+>
+  <view class="lc-header">
+    <view class="lc-header-inner">
+      <text class="lc-header-title">LearnCards</text>
+      <button class="lc-icon-btn" bind:tap="onToggleTheme">
+        <text style="font-size: 34rpx; color: var(--lc-text-muted);">{{theme === 'dark' ? '☀' : '☾'}}</text>
+      </button>
     </view>
   </view>
 
-  <view class="menu-card card-base">
-    <view class="menu-title">控制台</view>
+  <view class="lc-main">
+    <view class="lc-container">
+      <view class="title-block">
+        <view class="lc-h1">Settings</view>
+      </view>
 
-    <t-cell-group theme="card">
-      <t-cell title="每日提醒" hover arrow>
-        <view slot="left-icon" class="menu-icon-bg pink">
-          <t-icon name="notification" />
-        </view>
-        <t-switch
-          slot="note"
-          value="{{reminderEnabled}}"
-          colors="{{['var(--c-action)', '#E0E0E0']}}"
-          bind:change="onToggleReminder"
-        />
-      </t-cell>
+      <view wx:if="{{isLoading}}" class="lc-inline-loading" style="padding: 24rpx 0;">
+        <view class="lc-mini-spinner" />
+        <text class="lc-p">Loading...</text>
+      </view>
 
-      <t-cell title="数据导出" note="Markdown" hover arrow bind:click="onExportData">
-        <view slot="left-icon" class="menu-icon-bg purple">
-          <t-icon name="download" />
+      <!-- User Stats Card -->
+      <view class="stats-hero">
+        <view class="hero-top">
+          <view class="hero-cell">
+            <view class="hero-label">Total Points</view>
+            <view class="hero-value">{{pointsText}}</view>
+          </view>
+          <view class="hero-cell right">
+            <view class="hero-label">Global Rank</view>
+            <view class="hero-value">#{{globalRank}}</view>
+          </view>
         </view>
-      </t-cell>
 
-      <t-cell title="关于我们" hover arrow bind:click="onAbout">
-        <view slot="left-icon" class="menu-icon-bg blue">
-          <t-icon name="info-circle" />
+        <view class="hero-bottom">
+          <view class="mini">
+            <view class="mini-label">Streak</view>
+            <view class="mini-value">{{streak}} days</view>
+          </view>
+          <view class="mini">
+            <view class="mini-label">Total Cards</view>
+            <view class="mini-value">{{cardCount}}</view>
+          </view>
+          <view class="mini">
+            <view class="mini-label">Today</view>
+            <view class="mini-value">{{cardsStudiedToday}}/{{dailyGoal}}</view>
+          </view>
         </view>
-      </t-cell>
-    </t-cell-group>
+      </view>
+
+      <!-- Settings Groups -->
+      <view class="group">
+        <view class="group-title">Account</view>
+        <view class="group-card">
+          <view class="row" bind:tap="onRequestUserProfile">
+            <t-icon name="user" size="36rpx" color="var(--lc-text-muted)" />
+            <text class="row-label">Profile</text>
+            <text class="row-value">Student</text>
+            <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
+          </view>
+          <view class="row" bind:tap="onToggleNotifications">
+            <t-icon name="notification" size="36rpx" color="var(--lc-text-muted)" />
+            <text class="row-label">Notifications</text>
+            <text class="row-value">{{notifications ? 'Enabled' : 'Disabled'}}</text>
+            <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
+          </view>
+        </view>
+      </view>
+
+      <view class="group">
+        <view class="group-title">Appearance</view>
+        <view class="group-card">
+          <view class="row" bind:tap="onToggleTheme">
+            <t-icon name="star" size="36rpx" color="var(--lc-text-muted)" />
+            <text class="row-label">Dark Mode</text>
+            <text class="row-value">{{theme === 'dark' ? 'On' : 'Off'}}</text>
+            <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
+          </view>
+        </view>
+      </view>
+
+      <view class="group">
+        <view class="group-title">Data & Privacy</view>
+        <view class="group-card">
+          <view class="row" bind:tap="onPrivacyPolicy">
+            <t-icon name="lock-on" size="36rpx" color="var(--lc-text-muted)" />
+            <text class="row-label">Privacy Policy</text>
+            <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
+          </view>
+          <view class="row" bind:tap="onExportData">
+            <t-icon name="download" size="36rpx" color="var(--lc-text-muted)" />
+            <text class="row-label">Export Data</text>
+            <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
+          </view>
+        </view>
+      </view>
+
+      <!-- Disclaimer -->
+      <view class="disclaimer">
+        <view class="disclaimer-title">⚠️ Privacy Notice</view>
+        <view class="disclaimer-text">
+          This app is designed for educational purposes. Do not store personally identifiable information (PII) or
+          sensitive data in your study cards.
+        </view>
+      </view>
+
+      <!-- Sign Out -->
+      <button class="signout" bind:tap="onSignOut">
+        <t-icon name="logout" size="36rpx" color="var(--lc-danger)" />
+        <text style="margin-left: 12rpx;">Sign Out</text>
+      </button>
+
+      <view class="version">Version {{version}}</view>
+    </view>
   </view>
-
-  <view class="version-tag">Version {{version}} · Vibecoding Build</view>
 </view>

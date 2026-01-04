@@ -1,0 +1,152 @@
+<view
+  class="lc-root {{theme === 'dark' ? 'lc-theme-dark' : ''}}"
+  style="--lc-status-bar: {{statusBarRpx}}rpx; --lc-safe-bottom: {{safeBottomRpx}}rpx;"
+>
+  <view class="lc-header">
+    <view class="lc-header-inner">
+      <text class="lc-header-title">LearnCards</text>
+      <button class="lc-icon-btn" bind:tap="onToggleTheme">
+        <text style="font-size: 34rpx; color: var(--lc-text-muted);">{{theme === 'dark' ? '☀' : '☾'}}</text>
+      </button>
+    </view>
+  </view>
+
+  <view class="lc-main">
+    <view class="lc-container">
+      <view class="lc-h1">Daily Goals</view>
+
+      <view wx:if="{{isLoadingStats}}" class="lc-inline-loading" style="margin-top: 24rpx;">
+        <view class="lc-mini-spinner" />
+        <text class="lc-p">Loading...</text>
+      </view>
+
+      <!-- Progress Ring -->
+      <view class="lc-card goals-ring-card">
+        <view class="ring-wrap">
+          <view class="ring-track"></view>
+          <view class="ring-progress" style="--p: {{progressPercentage}}%;"></view>
+          <view class="ring-center">
+            <view class="ring-number">{{cardsStudiedToday}}</view>
+            <view class="ring-sub">of {{dailyGoal}} cards</view>
+          </view>
+        </view>
+
+        <view class="goals-msg">
+          <block wx:if="{{remaining > 0}}">
+            <view class="goals-msg-main">{{remaining}} more cards to reach your goal!</view>
+            <view class="goals-msg-sub">Keep it up! You're doing great.</view>
+          </block>
+          <block wx:else>
+            <view class="goals-msg-done">Goal completed!</view>
+            <view class="goals-msg-sub">Amazing work today!</view>
+          </block>
+        </view>
+      </view>
+
+      <!-- Edit Goal Modal -->
+      <view wx:if="{{isEditingGoal}}" class="lc-modal-overlay" catch:tap="onCancelEdit">
+        <view class="lc-modal" catch:tap="noop">
+          <view class="lc-modal-header">
+            <text class="lc-modal-title">Set Daily Goal</text>
+            <button class="lc-icon-btn" catch:tap="onCancelEdit">
+              <t-icon name="close" size="40rpx" color="var(--lc-text-muted)" />
+            </button>
+          </view>
+
+          <view class="lc-modal-body">
+            <view class="lc-p" style="margin-bottom: 24rpx;">
+              Choose how many cards you want to study each day:
+            </view>
+
+            <view class="preset-grid">
+              <view
+                wx:for="{{goalPresets}}"
+                wx:key="*this"
+                class="preset-item {{tempGoal === item ? 'is-active' : ''}}"
+                data-value="{{item}}"
+                catch:tap="onPickPreset"
+              >
+                <view class="preset-num">{{item}}</view>
+                <view class="preset-sub">cards</view>
+              </view>
+            </view>
+
+            <view class="custom-input">
+              <view class="lc-p" style="margin-bottom: 12rpx;">Or enter a custom goal:</view>
+              <view class="custom-row">
+                <input
+                  class="lc-input"
+                  type="number"
+                  value="{{tempGoal}}"
+                  bindinput="onTempGoalInput"
+                />
+                <text class="custom-unit">cards/day</text>
+              </view>
+            </view>
+          </view>
+
+          <view class="lc-modal-footer">
+            <button class="lc-btn footer-btn-cancel" catch:tap="onCancelEdit">Cancel</button>
+            <button class="lc-btn lc-btn-primary footer-btn-save" catch:tap="onSaveGoal">Save Goal</button>
+          </view>
+        </view>
+      </view>
+
+      <!-- Stats Grid -->
+      <view class="stats-grid">
+        <view class="lc-card stat-card">
+          <view class="stat-top">
+            <text class="stat-emoji">🔥</text>
+            <text class="stat-label">Current Streak</text>
+          </view>
+          <view class="stat-value">{{currentStreak}} days</view>
+        </view>
+
+        <view class="lc-card stat-card stat-clickable" bind:tap="onOpenEdit">
+          <view class="stat-top">
+            <t-icon name="flag" size="36rpx" color="var(--lc-primary)" />
+            <text class="stat-label">Daily Goal</text>
+            <t-icon name="edit-1" size="32rpx" color="var(--lc-text-subtle)" />
+          </view>
+          <view class="stat-value">{{dailyGoal}} cards</view>
+        </view>
+
+        <view class="lc-card stat-card">
+          <view class="stat-top">
+            <t-icon name="calendar" size="36rpx" color="var(--lc-success)" />
+            <text class="stat-label">This Week</text>
+          </view>
+          <view class="stat-value">{{weekTotal}} cards</view>
+        </view>
+
+        <view class="lc-card stat-card">
+          <view class="stat-top">
+            <t-icon name="chart-bar" size="36rpx" color="#9333ea" />
+            <text class="stat-label">This Month</text>
+          </view>
+          <view class="stat-value">{{monthTotal}} cards</view>
+        </view>
+      </view>
+
+      <!-- Weekly Activity -->
+      <view class="lc-card weekly-card">
+        <view class="weekly-title">Weekly Activity</view>
+        <view class="weekly-bars">
+          <block wx:for="{{weeklyDays}}" wx:key="*this">
+            <view class="weekly-item">
+              <view class="bar-wrap">
+                <view
+                  class="bar {{index === todayIndex ? 'is-today' : ''}}"
+                  style="height: {{weeklyHeights[index]}}%;"
+                />
+              </view>
+              <text class="bar-label">{{item}}</text>
+            </view>
+          </block>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+
+

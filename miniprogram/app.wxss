@@ -1,120 +1,370 @@
 /* app.wxss */
 @import 'miniprogram_npm/tdesign-miniprogram/common/style/index.wxss';
 
+/* =========================================================
+   LearnCards UI (同步 ui/ 网站的视觉：light/dark + 组件积木)
+   ========================================================= */
+
 page {
-  /* =================================
-     🎨 核心色板 (Academic Pop Palette)
-     ================================= */
-  
-  /* 🔵 品牌主色 (沉稳学术风) */
-  --c-primary: #2C68FF; 
-  --c-primary-dark: #1A4BD6;
-  --c-primary-light: #EBF2FF;
+  /* Default theme: light (Tailwind neutral/blue) */
+  --lc-bg: #fafafa; /* neutral-50 */
+  --lc-surface: #ffffff;
+  --lc-surface-2: #f5f5f5; /* neutral-100 */
+  --lc-text: #171717; /* neutral-900 */
+  --lc-text-muted: #737373; /* neutral-500 */
+  --lc-text-subtle: #a3a3a3; /* neutral-400 */
+  --lc-border: #e5e5e5; /* neutral-200 */
+  --lc-border-strong: #d4d4d4; /* neutral-300 */
 
-  /* 🟠 强调/行动色 (百词斩活力感) */
-  --c-accent: #FF8D1A;
-  --c-accent-dark: #D66E00;
-  --c-accent-light: #FFF4E6;
+  --lc-primary: #2563eb; /* blue-600 */
+  --lc-primary-hover: #1d4ed8; /* blue-700 */
+  --lc-primary-50: #eff6ff; /* blue-50 */
+  --lc-primary-950-20: rgba(23, 37, 84, 0.2);
 
-  /* 🟢 成功/记忆 */
-  --c-success: #00C777;
-  --c-success-dark: #009E5E;
-  --c-success-light: #E6FFF5;
-  
-  /* 🔴 遗忘/警告 */
-  --c-danger: #FF4C4C;
-  --c-danger-dark: #D62F2F;
-  --c-danger-light: #FFEBEB;
+  --lc-success: #16a34a; /* green-600 */
+  --lc-success-50: #f0fdf4; /* green-50 */
+  --lc-success-950-20: rgba(20, 83, 45, 0.2);
 
-  /* ⚪ 中性色 (纸张阅读感) */
-  --c-bg: #F5F7FA;       /* 全局浅灰底 */
-  --c-card: #FFFFFF;     /* 卡片白 */
-  --c-text-title: #1F2329; /* 墨黑 */
-  --c-text-body: #575D6C;  /* 深灰 */
-  --c-text-light: #9DA3B0; /* 浅灰 */
-  --c-border: #E3E6EB;     /* 边框线 */
+  --lc-danger: #dc2626; /* red-600 */
+  --lc-danger-50: #fef2f2; /* red-50 */
+  --lc-danger-950-20: rgba(69, 10, 10, 0.2);
 
-  /* =================================
-     📐 物理规则 (Physics System)
-     ================================= */
-  
-  /* 统一圆角：既不锐利也不过于圆润 */
-  --r-base: 24rpx;
-  --r-sm: 12rpx;
-  --r-pill: 100rpx;
+  --lc-warning-50: #fefce8; /* yellow-50 */
+  --lc-warning-border: #fde68a; /* yellow-200 */
+  --lc-warning-text: #78350f; /* amber-900 */
 
-  /* 统一边框：增加精致感 */
-  --border-base: 2rpx solid var(--c-border);
-  --border-primary: 2rpx solid var(--c-primary);
+  --lc-radius-lg: 20rpx;
+  --lc-radius-xl: 24rpx;
+  --lc-radius-2xl: 32rpx;
+  --lc-radius-full: 9999rpx;
 
-  /* 核心：硬阴影 (Hard Shadow) - 模拟实体卡片 */
-  --shadow-card: 0 4rpx 0 #E3E6EB; 
-  --shadow-float: 0 8rpx 0 #D0D5DF;
-  
-  /* 按钮的立体底座 */
-  --shadow-btn-primary: 0 8rpx 0 var(--c-primary-dark);
-  --shadow-btn-accent: 0 8rpx 0 var(--c-accent-dark);
-  --shadow-btn-success: 0 8rpx 0 var(--c-success-dark);
-  --shadow-btn-danger: 0 8rpx 0 var(--c-danger-dark);
+  --lc-header-h: 128rpx;
+  --lc-tabbar-h: 128rpx;
 
-  /* 全局字体 */
-  font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, sans-serif;
-  color: var(--c-text-title);
-  background-color: var(--c-bg);
+  font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: var(--lc-text);
+  background: var(--lc-bg);
   box-sizing: border-box;
 }
 
-/* =================================
-   🧱 通用组件积木 (Global Components)
-   ================================= */
+.lc-theme-dark {
+  --lc-bg: #0a0a0a; /* neutral-950 */
+  --lc-surface: #171717; /* neutral-900 */
+  --lc-surface-2: #262626; /* neutral-800 */
+  --lc-text: #ffffff;
+  --lc-text-muted: #a3a3a3; /* neutral-400 */
+  --lc-text-subtle: #737373; /* neutral-500 */
+  --lc-border: #262626; /* neutral-800 */
+  --lc-border-strong: #404040; /* neutral-700 */
 
-.page-container {
-  min-height: 100vh;
-  padding-bottom: 80rpx;
+  /* dark variants used as "tint/20" in ui/ */
+  --lc-primary-50: rgba(23, 37, 84, 0.2);
+  --lc-primary-950-20: rgba(23, 37, 84, 0.2);
+  --lc-success-50: rgba(20, 83, 45, 0.2);
+  --lc-success-950-20: rgba(20, 83, 45, 0.2);
+  --lc-danger-50: rgba(69, 10, 10, 0.2);
+  --lc-danger-950-20: rgba(69, 10, 10, 0.2);
+  --lc-warning-50: rgba(113, 63, 18, 0.2);
+  --lc-warning-border: rgba(113, 63, 18, 0.6);
+  --lc-warning-text: #fef9c3;
 }
 
-/* 1. 标准卡片 (Standard Card) */
-/* 以后所有页面只要用这个类，风格绝对统一 */
-.ui-card {
-  background: var(--c-card);
-  border-radius: var(--r-base);
-  border: var(--border-base);
-  box-shadow: var(--shadow-card);
+/* ======================
+   App-level scaffolding
+   ====================== */
+
+.lc-root {
+  min-height: 100vh;
+  background: var(--lc-bg);
+  color: var(--lc-text);
+}
+
+.lc-header {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 1000;
+  background: var(--lc-surface);
+  border-bottom: 2rpx solid var(--lc-border);
+}
+
+.lc-header-inner {
+  height: calc(var(--lc-header-h) + var(--lc-status-bar, 0rpx));
+  padding-top: var(--lc-status-bar, 0rpx);
+  padding-left: 32rpx;
+  padding-right: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+.lc-header-title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.lc-icon-btn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: var(--lc-radius-lg);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.lc-icon-btn:active {
+  background: var(--lc-surface-2);
+}
+
+.lc-main {
+  padding-top: calc(var(--lc-header-h) + var(--lc-status-bar, 0rpx));
+  padding-bottom: calc(var(--lc-tabbar-h) + var(--lc-safe-bottom, 0rpx));
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.lc-container {
+  padding: 48rpx 32rpx;
+  max-width: 1200rpx;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* =========
+   Elements
+   ========= */
+
+.lc-h1 {
+  font-size: 48rpx;
+  font-weight: 600;
+  color: var(--lc-text);
+}
+.lc-p {
+  font-size: 26rpx;
+  color: var(--lc-text-muted);
+  line-height: 1.6;
+}
+
+.lc-section-title {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--lc-text-muted);
+  margin-bottom: 24rpx;
+}
+
+.lc-card {
+  background: var(--lc-surface);
+  border: 2rpx solid var(--lc-border);
+  border-radius: var(--lc-radius-xl);
   padding: 32rpx;
-  margin: 24rpx 32rpx;
-  position: relative;
+  box-sizing: border-box;
+}
+
+.lc-input {
+  width: 100%;
+  padding: 24rpx 32rpx;
+  background: var(--lc-surface);
+  border: 2rpx solid var(--lc-border);
+  border-radius: var(--lc-radius-xl);
+  box-sizing: border-box;
+  color: var(--lc-text);
+  font-size: 28rpx;
+}
+.lc-input:focus {
+  border-color: var(--lc-primary);
+}
+
+.lc-chip-row {
+  display: flex;
+  white-space: nowrap;
+  padding-left: 32rpx;
+  padding-right: 32rpx;
+  box-sizing: border-box;
+}
+
+.lc-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16rpx 32rpx;
+  margin-right: 16rpx;
+  border-radius: var(--lc-radius-full);
+  font-size: 26rpx;
+  border: 2rpx solid var(--lc-border);
+  color: var(--lc-text-muted);
+  background: var(--lc-surface);
+  box-sizing: border-box;
+}
+.lc-chip:active {
+  border-color: var(--lc-border-strong);
+}
+.lc-chip.is-active {
+  background: var(--lc-primary);
+  border-color: var(--lc-primary);
+  color: #ffffff;
+}
+
+.lc-btn {
+  border-radius: var(--lc-radius-xl);
+  padding: 24rpx 32rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.lc-btn-primary {
+  background: var(--lc-primary);
+  color: #fff;
+}
+.lc-btn-primary:active {
+  background: var(--lc-primary-hover);
+}
+
+.lc-btn-outline {
+  background: var(--lc-surface);
+  border: 4rpx solid var(--lc-primary);
+  color: var(--lc-primary);
+}
+
+.lc-btn-danger-outline {
+  background: var(--lc-surface);
+  border: 4rpx solid var(--lc-danger);
+  color: var(--lc-danger);
+}
+
+.lc-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24rpx;
+}
+
+.lc-tile {
+  background: var(--lc-surface);
+  border: 2rpx solid var(--lc-border);
+  border-radius: var(--lc-radius-xl);
+  padding: 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  box-sizing: border-box;
+}
+.lc-tile:active {
+  border-color: var(--lc-primary);
+}
+
+.lc-badge {
+  padding: 8rpx 16rpx;
+  border-radius: var(--lc-radius-lg);
+  font-size: 24rpx;
+  font-weight: 600;
+  background: var(--lc-primary);
+  color: #fff;
+}
+
+.lc-progress-track {
+  width: 100%;
+  height: 16rpx;
+  background: var(--lc-surface-2);
+  border-radius: var(--lc-radius-full);
+  overflow: hidden;
+}
+.lc-progress-bar {
+  height: 100%;
+  background: var(--lc-primary);
+  border-radius: var(--lc-radius-full);
+}
+
+/* ==========
+   Modal base
+   ========== */
+
+.lc-modal-overlay {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+.lc-modal {
+  width: 100%;
+  max-width: 1200rpx;
+  background: var(--lc-surface);
+  border: 2rpx solid var(--lc-border);
+  border-radius: var(--lc-radius-2xl);
   overflow: hidden;
 }
 
-/* 2. 立体按钮 (3D Button) */
-.btn-base {
-  display: flex; align-items: center; justify-content: center;
-  font-size: 32rpx; font-weight: 700;
-  border-radius: var(--r-base);
-  padding: 24rpx 0;
-  transition: all 0.1s;
-}
-.btn-base:active {
-  transform: translateY(6rpx); /* 按压反馈 */
-  box-shadow: none !important; /* 消除底座 */
+.lc-modal-header {
+  padding: 32rpx;
+  border-bottom: 2rpx solid var(--lc-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
 }
 
-/* 按钮变种 */
-.btn-primary { 
-  background: var(--c-primary); color: #fff; 
-  box-shadow: var(--shadow-btn-primary); 
-}
-.btn-accent { 
-  background: var(--c-accent); color: #fff; 
-  box-shadow: var(--shadow-btn-accent); 
+.lc-modal-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--lc-text);
 }
 
-/* 3. 字体排版 */
-.text-h1 { font-size: 44rpx; font-weight: 800; color: var(--c-text-title); letter-spacing: 1rpx; }
-.text-h2 { font-size: 36rpx; font-weight: 700; color: var(--c-text-title); }
-.text-body { font-size: 28rpx; color: var(--c-text-body); line-height: 1.6; }
-.text-caption { font-size: 24rpx; color: var(--c-text-light); }
+.lc-modal-body {
+  padding: 32rpx;
+  box-sizing: border-box;
+}
 
-/* Flex 工具 */
-.row-between { display: flex; justify-content: space-between; align-items: center; }
-.row-center { display: flex; justify-content: center; align-items: center; }
+.lc-modal-footer {
+  padding: 32rpx;
+  border-top: 2rpx solid var(--lc-border);
+  display: flex;
+  gap: 24rpx;
+  box-sizing: border-box;
+}
+
+/* ======================
+   Lightweight loading UI
+   ====================== */
+
+.lc-inline-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  color: var(--lc-text-muted);
+  font-size: 24rpx;
+}
+
+.lc-mini-spinner {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: var(--lc-radius-full);
+  border: 4rpx solid var(--lc-border);
+  border-top-color: var(--lc-primary);
+  animation: lcSpin 0.8s linear infinite;
+  box-sizing: border-box;
+}
+
+@keyframes lcSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

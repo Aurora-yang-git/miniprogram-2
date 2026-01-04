@@ -1,65 +1,177 @@
-ai<view class="page-container">
-  <t-navbar title="今日计划" left-arrow="{{false}}" custom-style="background-color: transparent;" />
+<view
+  class="lc-root {{theme === 'dark' ? 'lc-theme-dark' : ''}}"
+  style="--lc-status-bar: {{statusBarRpx}}rpx; --lc-safe-bottom: {{safeBottomRpx}}rpx;"
+>
+  <!-- Fixed Header (matches ui/Layout) -->
+  <view class="lc-header">
+    <view class="lc-header-inner">
+      <text class="lc-header-title">LearnCards</text>
+      <button class="lc-icon-btn" bind:tap="onToggleTheme">
+        <text style="font-size: 34rpx; color: var(--lc-text-muted);">{{theme === 'dark' ? '☀' : '☾'}}</text>
+      </button>
+    </view>
+  </view>
 
-  <view class="ui-card header-card">
-    <view class="row-between">
-      <view class="user-welcome">
-        <view class="text-caption">Welcome Back</view>
-        <view class="text-h2">保持专注 🔥</view>
+  <view class="lc-main">
+    <view class="lc-container">
+      <!-- Search Bar -->
+      <view class="home-search">
+        <t-icon class="home-search-icon" name="search" size="40rpx" color="var(--lc-text-subtle)" />
+        <input
+          class="lc-input home-search-input"
+          placeholder="Search decks..."
+          placeholder-class="home-placeholder"
+          value="{{searchQuery}}"
+          bindinput="onSearchInput"
+        />
+        <button
+          wx:if="{{searchQuery}}"
+          class="home-search-clear"
+          catch:tap="onClearSearch"
+          aria-label="Clear search"
+        >
+          ×
+        </button>
       </view>
-      <view class="streak-badge">
-        <t-icon name="time" size="32rpx" style="margin-right:8rpx"/> {{myStats.streakDays}} 天连胜
-      </view>
-    </view>
-  </view>
 
-  <view class="dashboard-area row-center">
-    <view class="ring-container">
-      <view class="ring-track"></view>
-      <view class="ring-progress" style="--p: {{reviewProgress}}%; background: conic-gradient(var(--c-primary) var(--p), transparent 0);"></view>
-      <view class="ring-inner row-center">
-        <view style="text-align:center">
-          <view class="text-h1" style="font-size: 80rpx;">{{reviewCount}}</view>
-          <view class="text-caption">待复习</view>
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <view style="padding: 0 60rpx; margin-bottom: 60rpx;">
-    <button class="btn-base btn-accent" bind:tap="onStartReview">
-      开始背单词 / 复习
-    </button>
-  </view>
-
-  <view class="stats-row">
-    <view class="ui-card stat-item">
-      <view class="text-caption">今日积分</view>
-      <view class="text-h2" style="color: var(--c-success);">{{myStats.todayScore}}</view>
-    </view>
-    <view class="ui-card stat-item">
-      <view class="text-caption">累计掌握</view>
-      <view class="text-h2" style="color: var(--c-primary);">1,024</view>
-    </view>
-  </view>
-
-  <view class="rank-card" wx:if="{{rankTop && rankTop.length}}">
-    <view class="rank-title">全服学霸榜</view>
-    <view class="rank-list">
-      <view class="rank-item" wx:for="{{rankTop}}" wx:key="openid">
-        <view class="rank-left">
-          <text class="rank-index">{{index + 1}}</text>
-          <view class="rank-avatar">
-            <image wx:if="{{item.avatarUrl}}" class="avatar-img" src="{{item.avatarUrl}}" mode="aspectFill" />
-            <view wx:else class="avatar-fallback">{{item.initial || 'U'}}</view>
+      <!-- Filter Chips -->
+      <scroll-view scroll-x class="home-chip-scroll" show-scrollbar="{{false}}">
+        <view class="lc-chip-row">
+          <view
+            wx:for="{{filters}}"
+            wx:key="*this"
+            class="lc-chip {{activeFilter === item ? 'is-active' : ''}}"
+            data-filter="{{item}}"
+            bind:tap="onFilterTap"
+          >
+            {{item}}
           </view>
-          <text class="rank-name">{{item.nickname}}</text>
         </view>
-        <text class="rank-xp">{{item.xp}}</text>
+      </scroll-view>
+
+      <!-- Quick Actions -->
+      <view class="home-section">
+        <view class="lc-section-title">Quick Actions</view>
+        <view class="lc-grid-2 home-quick-grid">
+          <view class="lc-tile" bind:tap="onQuickAction" data-action="scan">
+            <t-icon name="scan" size="48rpx" color="var(--lc-primary)" />
+            <text class="home-tile-label">Scan Photo</text>
+          </view>
+          <view class="lc-tile" bind:tap="onQuickAction" data-action="upload">
+            <t-icon name="upload" size="48rpx" color="var(--lc-primary)" />
+            <text class="home-tile-label">Upload File</text>
+          </view>
+          <view class="lc-tile" bind:tap="onQuickAction" data-action="text">
+            <t-icon name="file-paste" size="48rpx" color="var(--lc-primary)" />
+            <text class="home-tile-label">Paste Text</text>
+          </view>
+          <view class="lc-tile" bind:tap="onQuickAction" data-action="feynman">
+            <t-icon name="books" size="48rpx" color="var(--lc-primary)" />
+            <text class="home-tile-label">Feynman Mode</text>
+          </view>
+        </view>
       </view>
-    </view>
-    <view class="rank-me" wx:if="{{myRank}}">
-      我的排名：{{myRank}}
+
+      <!-- My Decks -->
+      <view class="home-section">
+        <view class="home-section-row">
+          <view class="lc-section-title" style="margin-bottom: 0;">My Decks</view>
+          <view class="home-link" bind:tap="onGoCreate">
+            <t-icon name="add" size="28rpx" color="var(--lc-primary)" />
+            <text class="home-link-text">New Deck</text>
+          </view>
+        </view>
+
+        <view wx:if="{{isLoadingDecks}}" class="lc-card home-empty">
+          <view class="lc-inline-loading">
+            <view class="lc-mini-spinner" />
+            <text class="home-empty-text">Loading decks...</text>
     </view>
   </view>
+
+        <view wx:elif="{{!filteredDecks.length}}" class="lc-card home-empty">
+          <block wx:if="{{decks.length === 0}}">
+            <text class="home-empty-text">No decks found. Create your first deck to get started!</text>
+          </block>
+          <block wx:elif="{{searchQuery || activeFilter != 'All'}}">
+            <text class="home-empty-text">No decks match your search / filter.</text>
+            <button class="lc-btn lc-btn-outline" style="margin-top: 24rpx;" bind:tap="onClearFilters">
+              Clear filters
+            </button>
+          </block>
+          <block wx:else>
+            <text class="home-empty-text">No decks found.</text>
+          </block>
+        </view>
+
+        <view wx:else class="home-deck-list">
+          <block wx:for="{{filteredDecks}}" wx:key="id">
+            <view class="deck-card">
+              <view class="deck-top">
+                <view class="deck-main" bind:tap="onViewDeck" data-id="{{item.id}}">
+                  <view class="deck-title">{{item.title}}</view>
+                  <view class="deck-tags">
+                    <text
+                      wx:for="{{item.tags}}"
+                      wx:for-item="tag"
+                      wx:key="*this"
+                      class="deck-tag"
+                    >
+                      {{tag}}
+                    </text>
+                  </view>
+                </view>
+                <view class="deck-right">
+                  <view wx:if="{{item.dueCount > 0}}" class="lc-badge">{{item.dueCount}}</view>
+                  <button class="deck-menu-btn" catch:tap="onToggleDeckMenu" data-id="{{item.id}}">
+                    <t-icon name="more" size="40rpx" color="var(--lc-text-muted)" />
+    </button>
+                </view>
+              </view>
+
+              <!-- Dropdown Menu -->
+              <view wx:if="{{menuDeckId === item.id}}" class="deck-menu">
+                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="detail" data-id="{{item.id}}">
+                  <t-icon name="browse" size="28rpx" color="var(--lc-text-muted)" />
+                  <text class="deck-menu-text">View Details</text>
+                </view>
+                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="study" data-id="{{item.id}}">
+                  <t-icon name="play" size="28rpx" color="var(--lc-text-muted)" />
+                  <text class="deck-menu-text">Start Study</text>
+                </view>
+                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="add" data-id="{{item.id}}">
+                  <t-icon name="add" size="28rpx" color="var(--lc-text-muted)" />
+                  <text class="deck-menu-text">Add Cards</text>
+                </view>
+  </view>
+
+              <view class="deck-progress">
+                <view class="deck-progress-row">
+                  <text class="deck-meta">{{item.totalCards}} cards</text>
+                  <text class="deck-progress-value">{{item.progress}}%</text>
+    </view>
+                <view class="lc-progress-track">
+                  <view class="lc-progress-bar" style="width: {{item.progress}}%;" />
+    </view>
+  </view>
+
+              <view wx:if="{{item.lastStudied}}" class="deck-footer">
+                <view class="deck-footer-left">
+                  <t-icon name="time" size="24rpx" color="var(--lc-text-subtle)" />
+                  <text class="deck-footer-text">{{item.lastStudied}}</text>
+                </view>
+                <view wx:if="{{item.progress > 0}}" class="deck-footer-right">
+                  <t-icon name="arrow-up" size="24rpx" color="var(--lc-success)" />
+                  <text class="deck-footer-green">On track</text>
+                </view>
+              </view>
+          </view>
+          </block>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Click-away overlay for dropdown -->
+  <view wx:if="{{menuDeckId}}" class="deck-menu-overlay" catch:tap="onCloseDeckMenu" />
 </view>

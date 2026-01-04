@@ -1,172 +1,192 @@
-import { flashcardCollections } from '../../utils/flashcard-config'
+import { ensureUserStats } from '../../services/userStats'
+import { listUserCards, computeDecksFromCards, extractFiltersFromDecks } from '../../services/cards'
 
-function beijingDateString(ts) {
-  const offset = 8 * 60 * 60 * 1000
-  return new Date(ts + offset).toISOString().slice(0, 10)
+function getAppUiState() {
+  try {
+    const app = getApp()
+    const gd = app && app.globalData ? app.globalData : {}
+    return {
+      theme: app && typeof app.getTheme === 'function' ? app.getTheme() : 'light',
+      statusBarRpx: typeof gd.statusBarRpx === 'number' ? gd.statusBarRpx : 0,
+      safeBottomRpx: typeof gd.safeBottomRpx === 'number' ? gd.safeBottomRpx : 0
+    }
+  } catch (e) {
+    return { theme: 'light', statusBarRpx: 0, safeBottomRpx: 0 }
+  }
 }
 
 Page({
   data: {
-    studiedToday: 0,
-    dailyGoal: 20,
-    progressPercent: 0,
-    streakDays: 0,
-    pendingReviewCount: 0,
-    totalCards: 0,
-    todayXp: 0,
-    rankTop: [],
-    myRank: 0,
-    currentMood: 'happy',
-    reviewProgress: 0,
-    myStats: {
-      streakDays: 0,
-      todayScore: 0
-    },
-    reviewCount: 0
+    theme: 'light',
+    statusBarRpx: 0,
+    safeBottomRpx: 0,
+
+    isLoadingDecks: false,
+
+    searchQuery: '',
+    activeFilter: 'All',
+    filters: ['All'],
+
+    decks: [],
+    filteredDecks: [],
+
+    menuDeckId: ''
+  },
+
+  onLoad() {
+    const ui = getAppUiState()
+    this.setData({
+      theme: ui.theme,
+      statusBarRpx: ui.statusBarRpx,
+      safeBottomRpx: ui.safeBottomRpx
+    })
+    this.bootstrap()
   },
 
   onShow() {
-    this.loadDashboard()
+    const ui = getAppUiState()
+    this.setData({ theme: ui.theme, safeBottomRpx: ui.safeBottomRpx, statusBarRpx: ui.statusBarRpx })
+
+    const tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null
+    if (tabBar && tabBar.setData) tabBar.setData({ selected: 0, theme: ui.theme })
+
+    // refresh decks after create/review
+    this.loadDecks()
   },
 
-  async getOpenid() {
-    if (this._openid) return this._openid
-    if (!wx.cloud || !wx.cloud.callFunction) {
-      throw new Error('cloud callFunction unavailable')
+  async bootstrap() {
+    try {
+      if (wx.cloud && wx.cloud.database) {
+        await ensureUserStats()
+      }
+    } catch (e) {
+      // ignore
     }
-
-    const loginRes = await wx.cloud.callFunction({ name: 'login' })
-    const openid = loginRes && loginRes.result && loginRes.result.openid
-    if (!openid) {
-      throw new Error('login no openid')
-    }
-
-    this._openid = openid
-    return openid
+    await this.loadDecks()
   },
 
-  async ensureUserStats(openid) {
-    const db = wx.cloud.database()
-    const res = await db.collection(flashcardCollections.userStats).where({ _openid: openid }).limit(1).get()
-    const current = (res && Array.isArray(res.data) && res.data[0]) ? res.data[0] : null
-    if (current) return current
-
-    const createdAt = db.serverDate()
-    const base = {
-      xp: 0,
-      streak: 0,
-      studiedToday: 0,
-      lastStudyDate: '',
-      createdAt,
-      updatedAt: createdAt
-    }
-    await db.collection(flashcardCollections.userStats).add({ data: base })
-    return base
-  },
-
-  async loadDashboard() {
+  async loadDecks() {
     if (!wx.cloud || !wx.cloud.database) {
+      this.setData({ decks: [], filteredDecks: [] })
       wx.showToast({ title: '云能力不可用', icon: 'none' })
       return
     }
 
-    wx.showLoading({ title: '加载中' })
     try {
-      const db = wx.cloud.database()
-      const _ = db.command
-      const now = Date.now()
-      const canExists = _ && typeof _.exists === 'function'
-      const whereCond = canExists
-        ? _.or([
-          { nextReviewAt: _.lte(now) },
-          { nextReviewAt: _.exists(false) }
-        ])
-        : { nextReviewAt: _.lte(now) }
-      const countRes = await db
-        .collection(flashcardCollections.cards)
-        .where(whereCond)
-        .count()
-      const pendingReviewCount = countRes && typeof countRes.total === 'number' ? countRes.total : 0
-
-      const totalRes = await db.collection(flashcardCollections.cards).count()
-      const totalCards = totalRes && typeof totalRes.total === 'number' ? totalRes.total : 0
-
-      const openid = await this.getOpenid()
-      const stats = await this.ensureUserStats(openid)
-
-      const today = beijingDateString(now)
-      const lastStudyDate = stats && typeof stats.lastStudyDate === 'string' ? stats.lastStudyDate : ''
-      const streakDays = stats && typeof stats.streak === 'number' ? stats.streak : 0
-      const studiedToday = lastStudyDate === today
-        ? (stats && typeof stats.studiedToday === 'number' ? stats.studiedToday : 0)
-        : 0
-      const todayXp = lastStudyDate === today
-        ? (stats && typeof stats.dailyXp === 'number' ? stats.dailyXp : 0)
-        : 0
-
-      const dailyGoal = this.data.dailyGoal
-      const progressPercent = dailyGoal
-        ? Math.min(100, Math.round((studiedToday / dailyGoal) * 100))
-        : 0
-
-      this.setData({
-        pendingReviewCount,
-        reviewCount: pendingReviewCount,
-        totalCards,
-        studiedToday,
-        todayXp,
-        progressPercent,
-        streakDays,
-        reviewProgress: totalCards ? Math.min(100, Math.round((pendingReviewCount / totalCards) * 100)) : 0,
-        myStats: {
-          streakDays,
-          todayScore: todayXp
-        }
-      })
-
-      this.loadRank()
-      wx.hideLoading()
-    } catch (err) {
-      console.error('load dashboard failed', err)
-      wx.hideLoading()
-      wx.showToast({ title: '加载失败', icon: 'none' })
-    }
-  },
-
-  handleStartReview() {
-    wx.navigateTo({ url: '/pages/review/index' })
-  },
-
-  onStartReview() {
-    this.handleStartReview()
-  },
-
-  setMood(e) {
-    const m = e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.m
-    if (!m) return
-    this.setData({ currentMood: m })
-  },
-
-  async loadRank() {
-    if (!wx.cloud || !wx.cloud.callFunction) return
-    try {
-      const res = await wx.cloud.callFunction({ name: 'getGlobalRank' })
-      const ret = res && res.result ? res.result : null
-      if (!ret || ret.ok !== true) return
-      const top = Array.isArray(ret.top) ? ret.top : []
-      const withInitial = top.map((u) => {
-        const nickname = u && typeof u.nickname === 'string' ? u.nickname : ''
-        const initial = nickname ? nickname.slice(0, 1) : 'U'
-        return { ...u, initial }
-      })
-      const me = ret.me || null
-      this.setData({
-        rankTop: withInitial.slice(0, 50),
-        myRank: me && typeof me.rank === 'number' ? me.rank : 0
-      })
+      this.setData({ isLoadingDecks: true })
+      const cards = await listUserCards()
+      const decks = computeDecksFromCards(cards)
+      const filters = extractFiltersFromDecks(decks)
+      const currentActive = String(this.data.activeFilter || 'All')
+      const nextActive = filters.includes(currentActive) ? currentActive : 'All'
+      this.setData({ decks, filters, activeFilter: nextActive })
+      this.applyFilters()
+      this.setData({ isLoadingDecks: false })
     } catch (e) {
-      console.error('loadRank failed', e)
+      console.error('loadDecks failed', e)
+      this.setData({ isLoadingDecks: false })
+      wx.showToast({ title: '加载失败', icon: 'none' })
+      // Keep previous list to avoid UX feeling like decks disappeared
     }
-  }
+  },
 
+  applyFilters() {
+    const decks = Array.isArray(this.data.decks) ? this.data.decks : []
+    const q = String(this.data.searchQuery || '').trim().toLowerCase()
+    const activeFilter = String(this.data.activeFilter || 'All')
+    const filtered = decks.filter((deck) => {
+      const title = String(deck && deck.title ? deck.title : '')
+      const tags = Array.isArray(deck && deck.tags) ? deck.tags : []
+      const matchesSearch = !q || title.toLowerCase().includes(q)
+      const matchesFilter = activeFilter === 'All' || tags.includes(activeFilter)
+      return matchesSearch && matchesFilter
+    })
+    this.setData({ filteredDecks: filtered })
+  },
+
+  onSearchInput(e) {
+    const value = e && e.detail && typeof e.detail.value === 'string' ? e.detail.value : ''
+    this.setData({ searchQuery: value })
+    this.applyFilters()
+  },
+
+  onClearSearch() {
+    this.setData({ searchQuery: '' })
+    this.applyFilters()
+  },
+
+  onFilterTap(e) {
+    const filter = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.filter : ''
+    if (!filter) return
+    this.setData({ activeFilter: filter })
+    this.applyFilters()
+  },
+
+  onClearFilters() {
+    this.setData({ searchQuery: '', activeFilter: 'All' })
+    this.applyFilters()
+  },
+
+  onGoCreate() {
+    wx.switchTab({ url: '/pages/library/index' })
+  },
+
+  onQuickAction(e) {
+    const action = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.action : ''
+    if (action === 'feynman') {
+      wx.navigateTo({ url: '/pages/feynman/index' })
+      return
+    }
+
+    const mode = action === 'upload' ? 'upload' : action === 'text' ? 'text' : 'scan'
+    try {
+      wx.setStorageSync && wx.setStorageSync('createMode', mode)
+    } catch (err) {
+      // ignore
+    }
+    wx.switchTab({ url: '/pages/library/index' })
+  },
+
+  onViewDeck(e) {
+    const deckTitle = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.id : ''
+    if (!deckTitle) return
+    wx.navigateTo({ url: `/pages/library/detail?deckTitle=${encodeURIComponent(deckTitle)}` })
+  },
+
+  onToggleDeckMenu(e) {
+    const deckId = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.id : ''
+    if (!deckId) return
+    this.setData({ menuDeckId: this.data.menuDeckId === deckId ? '' : deckId })
+  },
+
+  onCloseDeckMenu() {
+    this.setData({ menuDeckId: '' })
+  },
+
+  onMenuAction(e) {
+    const ds = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset : {}
+    const action = ds.action
+    const deckTitle = ds.id
+    this.setData({ menuDeckId: '' })
+
+    if (!deckTitle) return
+    if (action === 'detail' || action === 'add') {
+      wx.navigateTo({ url: `/pages/library/detail?deckTitle=${encodeURIComponent(deckTitle)}` })
+      return
+    }
+    if (action === 'study') {
+      wx.navigateTo({ url: `/pages/review/index?deckTitle=${encodeURIComponent(deckTitle)}` })
+    }
+  },
+
+  onToggleTheme() {
+    const app = getApp()
+    const next = app && typeof app.toggleTheme === 'function'
+      ? app.toggleTheme()
+      : (this.data.theme === 'dark' ? 'light' : 'dark')
+
+    this.setData({ theme: next })
+    const tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null
+    if (tabBar && tabBar.setData) tabBar.setData({ theme: next })
+    }
 })

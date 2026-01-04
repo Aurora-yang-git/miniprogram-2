@@ -1,7 +1,3 @@
 {
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "t-empty": "/miniprogram_npm/tdesign-miniprogram/empty/empty",
-    "t-icon": "/miniprogram_npm/tdesign-miniprogram/icon/icon"
-  }
+  "navigationStyle": "custom"
 }
