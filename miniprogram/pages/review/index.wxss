@@ -59,7 +59,7 @@
   background: var(--lc-primary);
   border-color: var(--lc-primary-hover);
   transform: rotateY(180deg);
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .card-kicker {
@@ -90,6 +90,15 @@
   width: 100%;
   flex: 1;
   margin-top: 16rpx;
+}
+
+.answer-body {
+  min-height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .answer-text {

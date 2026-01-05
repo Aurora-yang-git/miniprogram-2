@@ -43,7 +43,11 @@ Page({
     cardCount: 0,
 
     cardsStudiedToday: 0,
-    dailyGoal: 20
+    dailyGoal: 20,
+
+    username: '',
+    isEditingUsername: false,
+    tempUsername: ''
   },
 
   onLoad() {
@@ -53,6 +57,8 @@ Page({
     this.hydrateNotifications()
     this.refreshAll(true)
   },
+
+  noop() {},
 
   onShow() {
     const ui = getAppUiState()
@@ -90,11 +96,13 @@ Page({
     try {
       if (showLoading) this.setData({ isLoading: true })
       const my = await loadMyStats()
+      const stats = my && my.stats ? my.stats : null
       const xp = my && typeof my.xp === 'number' ? my.xp : 0
       const streak = my && typeof my.streak === 'number' ? my.streak : 0
       const cardsStudiedToday = my && typeof my.cardsStudiedToday === 'number' ? my.cardsStudiedToday : 0
       const dailyGoal = my && typeof my.dailyGoal === 'number' && my.dailyGoal > 0 ? my.dailyGoal : 20
       const cardCount = await countUserCards()
+      const username = stats && typeof stats.nickname === 'string' ? stats.nickname : ''
 
       this.setData({
         points: xp,
@@ -102,7 +110,8 @@ Page({
         streak,
         cardCount,
         cardsStudiedToday,
-        dailyGoal
+        dailyGoal,
+        username
       })
 
       await this.loadGlobalRank()
@@ -146,7 +155,16 @@ Page({
 
         try {
           if (wx.cloud && wx.cloud.database) {
-            await updateProfile({ nickname: nickName, avatarUrl })
+            // Only set nickname from WeChat if user hasn't set a custom username yet.
+            let shouldSetNickname = false
+            try {
+              const my = await loadMyStats()
+              const current = my && my.stats && typeof my.stats.nickname === 'string' ? my.stats.nickname : ''
+              shouldSetNickname = !current
+            } catch (e) {
+              shouldSetNickname = false
+            }
+            await updateProfile(shouldSetNickname ? { nickname: nickName, avatarUrl } : { avatarUrl })
           }
         } catch (e) {
           console.error('updateProfile failed', e)
@@ -159,6 +177,40 @@ Page({
         wx.showToast({ title: 'Cancelled', icon: 'none' })
       }
     })
+  },
+
+  onOpenEditUsername() {
+    this.setData({ isEditingUsername: true, tempUsername: this.data.username || '' })
+  },
+
+  onCancelEditUsername() {
+    this.setData({ isEditingUsername: false, tempUsername: this.data.username || '' })
+  },
+
+  onTempUsernameInput(e) {
+    const value = e && e.detail && typeof e.detail.value === 'string' ? e.detail.value : ''
+    this.setData({ tempUsername: value })
+  },
+
+  async onSaveUsername() {
+    const next = String(this.data.tempUsername || '').trim()
+    if (!next) return
+    if (next.length > 20) {
+      wx.showToast({ title: '用户名最多 20 字', icon: 'none' })
+      return
+    }
+    this.setData({ username: next, isEditingUsername: false })
+
+    try {
+      if (wx.cloud && wx.cloud.database) {
+        await updateProfile({ nickname: next })
+      }
+      wx.showToast({ title: 'Username updated', icon: 'success' })
+      this.refreshAll(false)
+    } catch (e) {
+      console.error('save username failed', e)
+      wx.showToast({ title: '保存失败', icon: 'none' })
+    }
   },
 
   onToggleNotifications() {

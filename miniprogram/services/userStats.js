@@ -68,13 +68,10 @@ async function updateProfile({ nickname, avatarUrl }) {
   const id = stats && stats._id ? stats._id : ''
   if (!id) return
   const db = getDb()
-  await db.collection(flashcardCollections.userStats).doc(id).update({
-    data: {
-      nickname: typeof nickname === 'string' ? nickname : '',
-      avatarUrl: typeof avatarUrl === 'string' ? avatarUrl : '',
-      updatedAt: db.serverDate()
-    }
-  })
+  const data = { updatedAt: db.serverDate() }
+  if (typeof nickname === 'string') data.nickname = nickname
+  if (typeof avatarUrl === 'string') data.avatarUrl = avatarUrl
+  await db.collection(flashcardCollections.userStats).doc(id).update({ data })
 }
 
 export { ensureUserStats, loadMyStats, updateDailyGoal, updateProfile }

@@ -92,6 +92,20 @@
           <view wx:else class="upload-picked">Up to 9 images</view>
         </view>
 
+        <view class="field-block" style="margin-top: 24rpx;">
+          <view class="field-label">Knowledge (optional)</view>
+          <view wx:if="{{isFeynmanEntry}}" class="lc-p" style="margin-bottom: 16rpx;">
+            Feynman: write what you already know / how you would explain it. AI will generate cards using this context.
+          </view>
+          <textarea
+            class="lc-input textarea"
+            placeholder="Optional: your understanding, key points, or what you want to focus on..."
+            placeholder-class="home-placeholder"
+            value="{{knowledge}}"
+            bindinput="onKnowledgeInput"
+          />
+        </view>
+
         <button
           class="lc-btn lc-btn-primary create-btn"
           disabled="{{!deckTitle || (selectedMode === 'text' ? !inputText : pickedImages.length === 0)}}"

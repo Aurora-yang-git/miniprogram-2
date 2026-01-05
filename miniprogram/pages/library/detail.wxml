@@ -35,10 +35,16 @@
               </text>
             </view>
           </view>
-          <button class="study-btn" bind:tap="onStartStudy">
-            <t-icon name="play" size="28rpx" color="#fff" />
-            <text class="study-text">Study</text>
-          </button>
+          <view class="deck-actions">
+            <button class="study-btn" bind:tap="onStartStudy">
+              <t-icon name="play" size="28rpx" color="#fff" />
+              <text class="study-text">Study</text>
+            </button>
+            <button class="review-btn" bind:tap="onStartReview">
+              <t-icon name="time" size="28rpx" color="var(--lc-primary)" />
+              <text class="review-text">Review {{deck.dueCount}}</text>
+            </button>
+          </view>
         </view>
 
         <view class="deck-progress">

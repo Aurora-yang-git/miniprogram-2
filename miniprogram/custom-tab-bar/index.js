@@ -18,11 +18,20 @@ const getSafeBottomRpx = () => {
   }
 }
 
+const getColors = (theme) => {
+  const t = theme === 'dark' ? 'dark' : 'light'
+  if (t === 'dark') {
+    return { active: '#2563eb', inactive: '#a3a3a3', bg: '#171717', border: '#262626' }
+  }
+  return { active: '#2563eb', inactive: '#737373', bg: '#ffffff', border: '#e5e5e5' }
+}
+
 Component({
   data: {
     selected: 0,
     theme: 'light',
     safeBottomRpx: 0,
+    colors: { active: '#2563eb', inactive: '#737373', bg: '#ffffff', border: '#e5e5e5' },
     list: [
       { pagePath: 'pages/home/index', text: 'Home', icon: 'home' },
       { pagePath: 'pages/library/index', text: 'Create', icon: 'add' },
@@ -34,18 +43,23 @@ Component({
 
   lifetimes: {
     attached() {
-      this.setData({
-        theme: getAppTheme(),
-        safeBottomRpx: getSafeBottomRpx()
-      })
+      const theme = getAppTheme()
+      this.setData({ theme, safeBottomRpx: getSafeBottomRpx(), colors: getColors(theme) })
       this.syncSelectedByRoute()
     }
   },
 
   pageLifetimes: {
     show() {
-      this.setData({ theme: getAppTheme() })
+      const theme = getAppTheme()
+      this.setData({ theme, colors: getColors(theme) })
       this.syncSelectedByRoute()
+    }
+  },
+
+  observers: {
+    theme(theme) {
+      this.setData({ colors: getColors(theme) })
     }
   },
 

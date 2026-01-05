@@ -165,13 +165,25 @@ page {
 
 .lc-input {
   width: 100%;
-  padding: 24rpx 32rpx;
   background: var(--lc-surface);
   border: 2rpx solid var(--lc-border);
   border-radius: var(--lc-radius-xl);
   box-sizing: border-box;
   color: var(--lc-text);
   font-size: 28rpx;
+}
+
+/* NOTE: On some devices, <input> doesn't expand with vertical padding,
+   which can make typed text appear "missing". Use explicit height/line-height. */
+input.lc-input {
+  height: 96rpx;
+  line-height: 96rpx;
+  padding: 0 32rpx;
+}
+
+textarea.lc-input {
+  padding: 24rpx 32rpx;
+  line-height: 1.7;
 }
 .lc-input:focus {
   border-color: var(--lc-primary);

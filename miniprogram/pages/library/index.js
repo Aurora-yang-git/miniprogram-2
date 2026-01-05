@@ -1,6 +1,6 @@
 import { uploadImage, analyzeImage } from '../../services/ocr'
 import { generateCardsByDeepSeek } from '../../services/ai'
-import { createCard } from '../../services/cards'
+import { setPendingCreateJob, resumePendingCreateJob } from '../../services/pendingCreate'
 
 function getAppUiState() {
   try {
@@ -41,6 +41,8 @@ Page({
 
     deckTitle: '',
     inputText: '',
+    knowledge: '',
+    isFeynmanEntry: false,
 
     pickedImages: [],
 
@@ -72,6 +74,7 @@ Page({
     if (tabBar && tabBar.setData) tabBar.setData({ selected: 1, theme: ui.theme })
 
     this.hydrateInitialMode()
+    this.resumePendingSaves()
   },
 
   onUnload() {
@@ -84,6 +87,7 @@ Page({
   hydrateInitialMode() {
     try {
       const mode = wx.getStorageSync && wx.getStorageSync('createMode')
+      const entry = wx.getStorageSync && wx.getStorageSync('createEntry')
       if (mode === 'scan' || mode === 'upload' || mode === 'text') {
         this.setData({
           selectedMode: mode,
@@ -91,6 +95,8 @@ Page({
           currentStepIndex: stepToIndex('input'),
           pickedImages: [],
           inputText: '',
+          knowledge: '',
+          isFeynmanEntry: entry === 'feynman',
           isGenerating: false,
           step3Phase: 'idle',
           step3Title: '',
@@ -102,9 +108,70 @@ Page({
           generatedCount: 0
         })
         wx.setStorageSync && wx.setStorageSync('createMode', '')
+        wx.setStorageSync && wx.setStorageSync('createEntry', '')
+        return
+      }
+      if (entry === 'feynman') {
+        this.setData({
+          step: 'input',
+          currentStepIndex: stepToIndex('input'),
+          selectedMode: 'text',
+          pickedImages: [],
+          inputText: '',
+          knowledge: '',
+          isFeynmanEntry: true,
+          isGenerating: false,
+          step3Phase: 'idle',
+          step3Title: '',
+          step3Subtitle: '',
+          ocrDone: 0,
+          ocrTotal: 0,
+          writeDone: 0,
+          writeTotal: 0,
+          generatedCount: 0
+        })
+        wx.setStorageSync && wx.setStorageSync('createEntry', '')
       }
     } catch (e) {
       // ignore
+    }
+  },
+
+  async resumePendingSaves() {
+    if (this._isResumingSaves) return
+    if (this.data && this.data.isGenerating) return
+    this._isResumingSaves = true
+    try {
+      const ret = await resumePendingCreateJob({
+        onProgress: ({ done, total }) => {
+          this.setData({
+            step: 'generate',
+            currentStepIndex: stepToIndex('generate'),
+            isGenerating: true,
+            step3Phase: 'write',
+            step3Title: 'Saving cards...',
+            step3Subtitle: 'Resuming previous save',
+            writeDone: done,
+            writeTotal: total
+          })
+        }
+      })
+
+      if (!ret || ret.ok !== true) return
+
+      // If it completed successfully, show complete step
+      this.setData({
+        step: 'complete',
+        currentStepIndex: stepToIndex('complete'),
+        isGenerating: false,
+        step3Phase: 'done'
+      })
+    } catch (e) {
+      // keep pending job for next time
+      console.error('resumePendingSaves failed', e)
+      this.setData({ isGenerating: false })
+    } finally {
+      this._isResumingSaves = false
     }
   },
 
@@ -117,6 +184,7 @@ Page({
       currentStepIndex: stepToIndex('input'),
       pickedImages: [],
       inputText: '',
+      isFeynmanEntry: false,
       isGenerating: false,
       step3Phase: 'idle',
       step3Title: '',
@@ -137,6 +205,11 @@ Page({
   onInputText(e) {
     const value = e && e.detail && typeof e.detail.value === 'string' ? e.detail.value : ''
     this.setData({ inputText: value })
+  },
+
+  onKnowledgeInput(e) {
+    const value = e && e.detail && typeof e.detail.value === 'string' ? e.detail.value : ''
+    this.setData({ knowledge: value })
   },
 
   async onPickImage() {
@@ -212,6 +285,7 @@ Page({
     if (this.data.isGenerating) return
 
     let sourceText = ''
+    let pendingJobSet = false
     if (this.data.selectedMode === 'text') {
       sourceText = String(this.data.inputText || '').trim()
       if (!sourceText) {
@@ -257,7 +331,8 @@ Page({
         step3Subtitle: 'AI is creating knowledge cards from your content'
       })
 
-      const cards = await generateCardsByDeepSeek(sourceText)
+      const knowledge = String(this.data.knowledge || '').trim()
+      const cards = await generateCardsByDeepSeek({ rawText: sourceText, knowledge, learningStyle: '无' })
       const total = Array.isArray(cards) ? cards.length : 0
 
       this.setData({
@@ -269,15 +344,20 @@ Page({
         generatedCount: total
       })
 
-      // sequential write to avoid hitting quota
-      for (let i = 0; i < total; i += 1) {
-        const c = cards[i]
+      const toSave = (Array.isArray(cards) ? cards : []).map((c) => {
         const hint = c && typeof c.hint === 'string' ? c.hint.trim() : ''
         const answer = hint ? `${c.answer}\n\nHint: ${hint}` : c.answer
-        // eslint-disable-next-line no-await-in-loop
-        await createCard({ deckTitle: title, question: c.question, answer, tags: c.tags })
-        this.setData({ writeDone: i + 1 })
-      }
+        return { question: c.question, answer, tags: c.tags }
+      })
+
+      // Persist before writing so it can be resumed after app background/exit.
+      setPendingCreateJob({ deckTitle: title, cards: toSave })
+      pendingJobSet = true
+      await resumePendingCreateJob({
+        onProgress: ({ done }) => {
+          this.setData({ writeDone: done })
+        }
+      })
 
       wx.showToast({ title: `已生成并保存 ${total} 张卡片`, icon: 'success' })
       this.setData({
@@ -288,7 +368,7 @@ Page({
       })
     } catch (e) {
       console.error('generate/write cards failed', e)
-      wx.showToast({ title: '生成失败，请重试', icon: 'none' })
+      wx.showToast({ title: pendingJobSet ? '保存中断，下次打开会自动继续' : '生成失败，请重试', icon: 'none' })
       this.setData({
         isGenerating: false,
         step3Phase: 'idle',

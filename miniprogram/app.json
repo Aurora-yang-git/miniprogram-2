@@ -8,7 +8,6 @@
 
     "pages/library/detail",
     "pages/review/index",    
-    "pages/feynman/index",
     "pages/editor/index"     
   ],
   "window": {

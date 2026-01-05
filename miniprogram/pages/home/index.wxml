@@ -53,21 +53,13 @@
       <view class="home-section">
         <view class="lc-section-title">Quick Actions</view>
         <view class="lc-grid-2 home-quick-grid">
+          <view class="lc-tile" bind:tap="onQuickAction" data-action="reviewAll">
+            <t-icon name="time" size="48rpx" color="var(--lc-primary)" />
+            <text class="home-tile-label">Review</text>
+          </view>
           <view class="lc-tile" bind:tap="onQuickAction" data-action="scan">
             <t-icon name="scan" size="48rpx" color="var(--lc-primary)" />
             <text class="home-tile-label">Scan Photo</text>
-          </view>
-          <view class="lc-tile" bind:tap="onQuickAction" data-action="upload">
-            <t-icon name="upload" size="48rpx" color="var(--lc-primary)" />
-            <text class="home-tile-label">Upload File</text>
-          </view>
-          <view class="lc-tile" bind:tap="onQuickAction" data-action="text">
-            <t-icon name="file-paste" size="48rpx" color="var(--lc-primary)" />
-            <text class="home-tile-label">Paste Text</text>
-          </view>
-          <view class="lc-tile" bind:tap="onQuickAction" data-action="feynman">
-            <t-icon name="books" size="48rpx" color="var(--lc-primary)" />
-            <text class="home-tile-label">Feynman Mode</text>
           </view>
         </view>
       </view>
@@ -137,11 +129,19 @@
                 </view>
                 <view class="deck-menu-item" catch:tap="onMenuAction" data-action="study" data-id="{{item.id}}">
                   <t-icon name="play" size="28rpx" color="var(--lc-text-muted)" />
-                  <text class="deck-menu-text">Start Study</text>
+                  <text class="deck-menu-text">Study (All)</text>
+                </view>
+                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="review" data-id="{{item.id}}">
+                  <t-icon name="time" size="28rpx" color="var(--lc-text-muted)" />
+                  <text class="deck-menu-text">Review (Due)</text>
                 </view>
                 <view class="deck-menu-item" catch:tap="onMenuAction" data-action="add" data-id="{{item.id}}">
                   <t-icon name="add" size="28rpx" color="var(--lc-text-muted)" />
                   <text class="deck-menu-text">Add Cards</text>
+                </view>
+                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="delete" data-id="{{item.id}}">
+                  <t-icon name="delete" size="28rpx" color="var(--lc-danger)" />
+                  <text class="deck-menu-text" style="color: var(--lc-danger);">Delete Deck</text>
                 </view>
   </view>
 

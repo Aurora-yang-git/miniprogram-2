@@ -1,0 +1,141 @@
+{
+  "$schema": "https://example.com/prompt-registry.schema.json",
+  "project": "学习卡子",
+  "version": "1.0.0",
+  "notes": [
+    "本文件用于集中管理各层 Prompt（system/user 模板）。",
+    "强烈建议：所有层的输出都强制为 JSON，便于解析与回归测试。",
+    "{{...}} 为运行时变量占位符，由你的代码注入。"
+  ],
+  "layers": {
+    "L0_kimi_vision_transcribe": {
+      "provider": "kimi",
+      "model": "<your-kimi-model>",
+      "purpose": "把图片中的文字 + 非文字信息转写为结构化 JSON；不总结、不解释。",
+      "system": "你是一名视觉内容转写助手。\n\n你的任务是将图片中的所有“学习相关信息”完整、准确地转写为文本描述。\n\n你必须严格遵守以下规则：\n1. 既要识别图片中的文字，也要识别非文字信息（如表格、箭头、图示、列表、结构布局）\n2. 不进行总结、不解释含义、不推导结论\n3. 不新增图片中不存在的信息\n4. 使用客观、中性、描述性的语言\n5. 必须以结构化 JSON 形式输出",
+      "user_template": "请处理以下图片内容，完成转写任务。\n\n要求：\n1. 识别所有可见文字（包括标题、注释、标号）\n2. 对非文字信息进行描述，例如：\n   - 表格：描述行列含义\n   - 箭头或流程：描述指向关系\n   - 图示：描述元素之间的相对关系\n3. 不要解释这些内容“是什么意思”，只描述“看到了什么”\n\n请严格按照以下 JSON 格式输出：\n{\n  \"raw_text\": \"\",\n  \"visual_elements\": [],\n  \"layout_notes\": []\n}\n\n图片内容如下：\n{{image}}",
+      "inputs": {
+        "image": { "type": "binary_or_url", "required": true, "description": "图片二进制或可访问 URL（按 Kimi 接口要求）" }
+      },
+      "expected_output_schema": {
+        "type": "object",
+        "properties": {
+          "raw_text": { "type": "string" },
+          "visual_elements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": { "type": "string", "enum": ["table", "diagram", "chart", "formula", "figure", "layout", "other"] },
+                "description": { "type": "string" }
+              },
+              "required": ["type", "description"]
+            }
+          },
+          "layout_notes": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["raw_text", "visual_elements", "layout_notes"]
+      }
+    },
+
+    "L0_kimi_text_clean": {
+      "provider": "kimi",
+      "model": "<your-kimi-model>",
+      "purpose": "对 OCR 文本做清洗与排版修复；不总结、不改写含义。",
+      "system": "你是一名文本整理助手。你的任务是清理 OCR 识别文本，使其更可读。你不得总结、解释或新增信息。输出必须仅为整理后的文本，不要附加说明。",
+      "user_template": "请对以下 OCR 识别结果进行处理：\n\n要求：\n1. 删除明显乱码、页码、无关符号\n2. 保留原有逻辑顺序\n3. 不要总结、不解释、不新增内容\n4. 输出为“整理后的原始学习文本”（纯文本）\n\nOCR 原文如下：\n{{ocr_text}}",
+      "inputs": {
+        "ocr_text": { "type": "string", "required": true }
+      },
+      "expected_output_schema": { "type": "string" }
+    },
+
+    "L1_deepseek_analyze_decompose": {
+      "provider": "deepseek",
+      "model": "<your-deepseek-model>",
+      "purpose": "从文本与视觉补充说明中抽取核心知识点与可考察问题点；不生成卡片。",
+      "system": "你是一名学习内容分析助手，擅长将学习材料拆解为清晰、可学习的知识结构。\n\n你的职责是分析，不是出题。\n不要生成学习卡片。\n不要进行记忆策略设计。\n输出必须为 JSON。",
+      "user_template": "请分析以下学习材料，并完成任务。\n\n任务：\n1. 提取核心知识点（简洁、准确）\n2. 标出适合被考察理解的问题点\n3. 如果存在隐含前提知识，请标注出来\n\n学习材料文本：\n{{raw_text}}\n\n视觉结构补充说明：\n{{visual_elements}}\n{{layout_notes}}\n\n用户额外要求（如有）：\n{{user_prompt}}\n\n请严格以以下 JSON 格式输出：\n{\n  \"core_points\": [],\n  \"question_points\": [],\n  \"prerequisites\": []\n}",
+      "inputs": {
+        "raw_text": { "type": "string", "required": true },
+        "visual_elements": { "type": "array", "required": false },
+        "layout_notes": { "type": "array", "required": false },
+        "user_prompt": { "type": "string", "required": false, "default": "无" }
+      },
+      "expected_output_schema": {
+        "type": "object",
+        "properties": {
+          "core_points": { "type": "array", "items": { "type": "string" } },
+          "question_points": { "type": "array", "items": { "type": "string" } },
+          "prerequisites": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["core_points", "question_points", "prerequisites"]
+      }
+    },
+
+    "L2_deepseek_generate_cards": {
+      "provider": "deepseek",
+      "model": "<your-deepseek-model>",
+      "purpose": "把知识点与问题点生成翻转式卡片（question/answer/hint）。",
+      "system": "你是一名知识卡片设计专家，擅长为长期记忆设计高质量的学习卡片。\n\n卡片必须：\n- 适合翻转式学习\n- 考察理解而非照抄\n- 答案简洁、可直接记忆\n输出必须为 JSON 数组。",
+      "user_template": "请根据以下信息生成学习卡片。\n\n要求：\n1. 每张卡片必须包含：question、answer、hint\n2. question 应考察理解，而不是复述原文\n3. answer 要简洁、准确、适合背诵\n4. hint 用于提示思路，不直接给答案\n5. 输出为 JSON 数组\n\n核心知识点：\n{{core_points}}\n\n可考察问题点：\n{{question_points}}\n\n学习偏好（如：文科优先 / 简单 / 考试向）：\n{{learning_style}}\n\n请输出 JSON 数组格式：\n[\n  {\n    \"question\": \"\",\n    \"answer\": \"\",\n    \"hint\": \"\"\n  }\n]",
+      "inputs": {
+        "core_points": { "type": "array", "required": true },
+        "question_points": { "type": "array", "required": true },
+        "learning_style": { "type": "string", "required": false, "default": "无" }
+      },
+      "expected_output_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "question": { "type": "string" },
+            "answer": { "type": "string" },
+            "hint": { "type": "string" }
+          },
+          "required": ["question", "answer", "hint"]
+        }
+      }
+    },
+
+    "L3_deepseek_sm2_init": {
+      "provider": "deepseek",
+      "model": "<your-deepseek-model>",
+      "purpose": "为每张卡评估初始 difficulty 与 initial_easiness，供 SM-2 初始化。",
+      "system": "你是一名记忆学习专家，熟悉艾宾浩斯遗忘曲线与 SM-2 算法。\n你的任务是为学习卡片评估初始记忆参数。\n不修改卡片内容。\n输出必须为 JSON 数组。",
+      "user_template": "请为以下学习卡片评估初始记忆难度参数。\n\n要求：\n1. difficulty 范围为 1–5（5 为最难）\n2. 文科理解类题目整体难度可略高\n3. 给出推荐的初始 easiness factor（范围 1.3–2.5）\n4. 不修改卡片内容\n\n学习卡片如下：\n{{cards_json}}\n\n请输出与卡片一一对应的 JSON 数组：\n[\n  {\n    \"difficulty\": 3,\n    \"initial_easiness\": 2.2\n  }\n]",
+      "inputs": {
+        "cards_json": { "type": "array", "required": true }
+      },
+      "expected_output_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "initial_easiness": { "type": "number", "minimum": 1.3, "maximum": 2.5 }
+          },
+          "required": ["difficulty", "initial_easiness"]
+        }
+      }
+    }
+  },
+
+  "runtime": {
+    "placeholders": {
+      "{{image}}": "图片输入（按供应商要求：二进制/URL/base64）",
+      "{{ocr_text}}": "OCR 结果文本",
+      "{{raw_text}}": "整理后的学习材料文本",
+      "{{visual_elements}}": "第0层的视觉元素结构数组",
+      "{{layout_notes}}": "第0层的版式说明数组",
+      "{{user_prompt}}": "用户自定义 prompt（可为空）",
+      "{{learning_style}}": "学习偏好（可为空）",
+      "{{core_points}}": "第1层输出核心知识点数组",
+      "{{question_points}}": "第1层输出可考察问题点数组",
+      "{{cards_json}}": "第2层输出卡片数组"
+    }
+  }
+}
+
+
+

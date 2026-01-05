@@ -1,5 +1,6 @@
-import { ensureUserStats } from '../../services/userStats'
-import { listUserCards, computeDecksFromCards, extractFiltersFromDecks } from '../../services/cards'
+import { listUserCards, computeDecksFromCards, extractFiltersFromDecks, deleteDeckByTitle } from '../../services/cards'
+import { ensureDefaultDecks, isDefaultDeckTitle, optOutDefaultDeck } from '../../services/defaultDecks'
+import { resumePendingCreateJob } from '../../services/pendingCreate'
 
 function getAppUiState() {
   try {
@@ -34,58 +35,95 @@ Page({
   },
 
   onLoad() {
+    this._loadDecksSeq = 0
+    this._isResumingPendingCreate = false
+
     const ui = getAppUiState()
     this.setData({
       theme: ui.theme,
       statusBarRpx: ui.statusBarRpx,
       safeBottomRpx: ui.safeBottomRpx
     })
-    this.bootstrap()
   },
 
-  onShow() {
+  async onShow() {
     const ui = getAppUiState()
     this.setData({ theme: ui.theme, safeBottomRpx: ui.safeBottomRpx, statusBarRpx: ui.statusBarRpx })
 
     const tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null
     if (tabBar && tabBar.setData) tabBar.setData({ selected: 0, theme: ui.theme })
 
-    // refresh decks after create/review
-    this.loadDecks()
-  },
-
-  async bootstrap() {
+    // Ensure built-in decks are complete and properly titled (ACT/CSP),
+    // then refresh decks after create/review.
     try {
       if (wx.cloud && wx.cloud.database) {
-        await ensureUserStats()
+        await ensureDefaultDecks()
       }
     } catch (e) {
       // ignore
     }
-    await this.loadDecks()
+    this.loadDecks()
+
+    // If user backgrounded during Create Step3, resume saving in the background,
+    // then refresh decks so the new cards/deck appear without re-entering Home.
+    this.resumePendingCreateAndRefresh()
+  },
+
+  async resumePendingCreateAndRefresh() {
+    if (this._isResumingPendingCreate) return
+    this._isResumingPendingCreate = true
+    try {
+      const ret = await resumePendingCreateJob()
+      if (ret && ret.ok === true) {
+        await this.loadDecks()
+      }
+    } catch (e) {
+      // ignore
+    } finally {
+      this._isResumingPendingCreate = false
+    }
   },
 
   async loadDecks() {
+    const seq = (this._loadDecksSeq = (this._loadDecksSeq || 0) + 1)
+
     if (!wx.cloud || !wx.cloud.database) {
-      this.setData({ decks: [], filteredDecks: [] })
-      wx.showToast({ title: '云能力不可用', icon: 'none' })
+      if (seq !== this._loadDecksSeq) return
+      this.setData({ decks: [], filteredDecks: [], isLoadingDecks: false })
+      if (seq === this._loadDecksSeq) wx.showToast({ title: '云能力不可用', icon: 'none' })
       return
     }
 
     try {
       this.setData({ isLoadingDecks: true })
       const cards = await listUserCards()
+      if (seq !== this._loadDecksSeq) return
       const decks = computeDecksFromCards(cards)
       const filters = extractFiltersFromDecks(decks)
       const currentActive = String(this.data.activeFilter || 'All')
       const nextActive = filters.includes(currentActive) ? currentActive : 'All'
-      this.setData({ decks, filters, activeFilter: nextActive })
-      this.applyFilters()
-      this.setData({ isLoadingDecks: false })
+      const q = String(this.data.searchQuery || '').trim().toLowerCase()
+      const filteredDecks = decks.filter((deck) => {
+        const title = String(deck && deck.title ? deck.title : '')
+        const tags = Array.isArray(deck && deck.tags) ? deck.tags : []
+        const matchesSearch = !q || title.toLowerCase().includes(q)
+        const matchesFilter = nextActive === 'All' || tags.includes(nextActive)
+        return matchesSearch && matchesFilter
+      })
+      if (seq === this._loadDecksSeq) {
+        this.setData({
+          decks,
+          filters,
+          activeFilter: nextActive,
+          filteredDecks,
+          isLoadingDecks: false
+        })
+      }
     } catch (e) {
+      if (seq !== this._loadDecksSeq) return
       console.error('loadDecks failed', e)
       this.setData({ isLoadingDecks: false })
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      if (seq === this._loadDecksSeq) wx.showToast({ title: '加载失败', icon: 'none' })
       // Keep previous list to avoid UX feeling like decks disappeared
     }
   },
@@ -133,12 +171,12 @@ Page({
 
   onQuickAction(e) {
     const action = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.action : ''
-    if (action === 'feynman') {
-      wx.navigateTo({ url: '/pages/feynman/index' })
+    if (action === 'reviewAll') {
+      wx.navigateTo({ url: '/pages/review/index?mode=review&scope=all' })
       return
     }
-
-    const mode = action === 'upload' ? 'upload' : action === 'text' ? 'text' : 'scan'
+    if (action !== 'scan') return
+    const mode = 'scan'
     try {
       wx.setStorageSync && wx.setStorageSync('createMode', mode)
     } catch (err) {
@@ -175,7 +213,35 @@ Page({
       return
     }
     if (action === 'study') {
-      wx.navigateTo({ url: `/pages/review/index?deckTitle=${encodeURIComponent(deckTitle)}` })
+      wx.navigateTo({ url: `/pages/review/index?mode=study&deckTitle=${encodeURIComponent(deckTitle)}` })
+      return
+    }
+    if (action === 'review') {
+      wx.navigateTo({ url: `/pages/review/index?mode=review&deckTitle=${encodeURIComponent(deckTitle)}` })
+      return
+    }
+    if (action === 'delete') {
+      wx.showModal({
+        title: 'Delete deck?',
+        content: 'This will delete all cards in this deck.',
+        confirmText: 'Delete',
+        confirmColor: '#dc2626',
+        success: async (res) => {
+          if (!res.confirm) return
+          try {
+            if (isDefaultDeckTitle(deckTitle)) {
+              await optOutDefaultDeck(deckTitle)
+            }
+            await deleteDeckByTitle(deckTitle)
+            wx.showToast({ title: 'Deleted', icon: 'success' })
+            await this.loadDecks()
+          } catch (err) {
+            console.error('deleteDeckByTitle failed', err)
+            wx.showToast({ title: '删除失败', icon: 'none' })
+          }
+        }
+      })
+      return
     }
   },
 

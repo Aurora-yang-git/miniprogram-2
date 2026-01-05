@@ -133,6 +133,21 @@ async function deleteCard(cardId) {
   await db.collection('cards').doc(cardId).remove()
 }
 
+async function deleteDeckByTitle(deckTitle) {
+  const cards = await listCardsByDeckTitle(deckTitle)
+  if (!Array.isArray(cards) || !cards.length) return 0
+  let removed = 0
+  for (let i = 0; i < cards.length; i += 1) {
+    const c = cards[i]
+    const id = c && (c._id || c.id)
+    if (!id) continue
+    // eslint-disable-next-line no-await-in-loop
+    await deleteCard(String(id))
+    removed += 1
+  }
+  return removed
+}
+
 function computeDecksFromCards(cards, now = Date.now()) {
   const list = Array.isArray(cards) ? cards : []
   const map = new Map()
@@ -203,6 +218,7 @@ export {
   createCard,
   updateCard,
   deleteCard,
+  deleteDeckByTitle,
   computeDecksFromCards,
   extractFiltersFromDecks
 }

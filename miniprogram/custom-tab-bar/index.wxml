@@ -1,4 +1,7 @@
-<view class="lc-tabbar {{theme === 'dark' ? 'lc-theme-dark' : ''}}" style="padding-bottom: {{safeBottomRpx}}rpx;">
+<view
+  class="lc-tabbar {{theme === 'dark' ? 'lc-theme-dark' : ''}}"
+  style="padding-bottom: {{safeBottomRpx}}rpx; background: {{colors.bg}}; border-top-color: {{colors.border}};"
+>
   <view class="lc-tabbar-inner">
     <block wx:for="{{list}}" wx:key="pagePath">
       <view
@@ -10,9 +13,9 @@
         <t-icon
           name="{{item.icon}}"
           size="40rpx"
-          color="{{selected === index ? 'var(--lc-primary)' : 'var(--lc-text-muted)'}}"
+          color="{{selected === index ? colors.active : colors.inactive}}"
         />
-        <text class="lc-tab-label">{{item.text}}</text>
+        <text class="lc-tab-label" style="color: {{selected === index ? colors.active : colors.inactive}};">{{item.text}}</text>
       </view>
     </block>
   </view>

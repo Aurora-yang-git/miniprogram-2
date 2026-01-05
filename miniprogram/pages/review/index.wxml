@@ -98,7 +98,9 @@
             <view class="card-face face-back">
               <view class="card-kicker back-kicker">Answer</view>
               <scroll-view scroll-y class="answer-scroll">
-                <view class="answer-text">{{currentCard.answer}}</view>
+                <view class="answer-body">
+                  <view class="answer-text">{{currentCard.answer}}</view>
+                </view>
               </scroll-view>
     </view>
     </view>

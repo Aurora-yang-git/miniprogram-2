@@ -192,7 +192,11 @@ Page({
   },
 
   onStartStudy() {
-    wx.navigateTo({ url: `/pages/review/index?deckTitle=${encodeURIComponent(this.data.deckTitle)}` })
+    wx.navigateTo({ url: `/pages/review/index?mode=study&deckTitle=${encodeURIComponent(this.data.deckTitle)}` })
+  },
+
+  onStartReview() {
+    wx.navigateTo({ url: `/pages/review/index?mode=review&deckTitle=${encodeURIComponent(this.data.deckTitle)}` })
   },
 
   onOpenAddModal() {

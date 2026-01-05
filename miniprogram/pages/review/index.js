@@ -1,4 +1,4 @@
-import { listDueCards, normalizeDeckTitle } from '../../services/cards'
+import { listCardsByDeckTitle, listDueCards, normalizeDeckTitle } from '../../services/cards'
 import { recordReviewEvent } from '../../services/activity'
 
 const PENDING_KEY = 'review_pending_submits'
@@ -77,12 +77,15 @@ Page({
     statusBarRpx: 0,
     safeBottomRpx: 0,
 
-    deckTitle: 'Study Mode',
+    mode: 'review', // review | study
+    scope: 'deck', // deck | all
+    deckTitle: 'Review',
     deckTitleFilter: '',
 
     isLoadingQueue: false,
 
     round: 'main', // main | relearn
+    relearnRound: 0,
     relearnQueue: [],
 
     queue: [],
@@ -110,6 +113,14 @@ Page({
     const ui = getAppUiState()
     this.setData({ theme: ui.theme, statusBarRpx: ui.statusBarRpx, safeBottomRpx: ui.safeBottomRpx })
 
+    const optMode = options && options.mode ? String(options.mode) : ''
+    const mode = optMode === 'study' ? 'study' : 'review'
+    const optScope = options && options.scope ? String(options.scope) : ''
+    const scope = optScope === 'all' ? 'all' : 'deck'
+
+    let deckTitle = scope === 'all' ? 'All Review' : 'Review'
+    let deckTitleFilter = ''
+
     const rawTitle = options && options.deckTitle ? String(options.deckTitle) : ''
     if (rawTitle) {
       let decoded = rawTitle
@@ -118,9 +129,16 @@ Page({
       } catch (e) {
         decoded = rawTitle
       }
-      const deckTitle = normalizeDeckTitle(decoded)
-      this.setData({ deckTitle, deckTitleFilter: deckTitle })
+      deckTitle = normalizeDeckTitle(decoded)
+      deckTitleFilter = deckTitle
     }
+
+    this.setData({
+      mode,
+      scope,
+      deckTitle,
+      deckTitleFilter
+    })
   },
 
   onShow() {
@@ -198,14 +216,25 @@ Page({
       isFlipped: false
     })
     try {
-      const rawList = await listDueCards({
-        deckTitle: this.data.deckTitleFilter || undefined,
-        limit: 20
-      })
+      let rawList = []
+      const mode = this.data.mode
+      const scope = this.data.scope
+      if (mode === 'study') {
+        if (!this.data.deckTitleFilter) throw new Error('missing deckTitle for study')
+        rawList = await listCardsByDeckTitle(this.data.deckTitleFilter)
+      } else if (scope === 'all') {
+        rawList = await listDueCards({ limit: 200 })
+      } else {
+        rawList = await listDueCards({
+          deckTitle: this.data.deckTitleFilter || undefined,
+          limit: 200
+        })
+      }
       const queue = (Array.isArray(rawList) ? rawList : []).map((card) => this.normalizeCardForReview(card))
       this.setData({
         isLoadingQueue: false,
         round: 'main',
+        relearnRound: 0,
         relearnQueue: [],
         queue,
         currentIndex: 0,
@@ -262,10 +291,8 @@ Page({
     const isRelearn = this.data.round === 'relearn'
 
     // Optimistic UI: immediately move to next card
-    if (!isRelearn) {
-      this.pushResult(understood)
-      if (!understood) this.enqueueRelearn(current)
-    }
+    if (!isRelearn) this.pushResult(understood)
+    if (!understood) this.enqueueRelearn(current)
     this.nextCard()
 
     // Background submit
@@ -417,12 +444,13 @@ Page({
     const next = this.data.currentIndex + 1
     if (next >= (Array.isArray(this.data.queue) ? this.data.queue.length : 0)) {
       this.setData({ isFlipped: false })
-      const isMain = this.data.round === 'main'
       const relearn = Array.isArray(this.data.relearnQueue) ? this.data.relearnQueue : []
-      if (isMain && relearn.length) {
+      if (relearn.length) {
         const queue = relearn.slice()
+        const nextRound = (typeof this.data.relearnRound === 'number' ? this.data.relearnRound : 0) + 1
         this.setData({
           round: 'relearn',
+          relearnRound: nextRound,
           relearnQueue: [],
           queue,
           currentIndex: 0,
@@ -430,7 +458,7 @@ Page({
           totalCards: queue.length,
           isFlipped: false
         })
-        wx.showToast({ title: '错题再练', icon: 'none' })
+        wx.showToast({ title: nextRound === 1 ? '错题再练' : `再练第${nextRound}轮`, icon: 'none' })
         return
       }
 
