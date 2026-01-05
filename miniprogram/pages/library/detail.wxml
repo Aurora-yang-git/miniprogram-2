@@ -5,16 +5,13 @@
   <view class="lc-header">
     <view class="lc-header-inner">
       <text class="lc-header-title">LearnCards</text>
-      <button class="lc-icon-btn" bind:tap="onToggleTheme">
-        <text style="font-size: 34rpx; color: var(--lc-text-muted);">{{theme === 'dark' ? '☀' : '☾'}}</text>
-      </button>
     </view>
   </view>
 
   <view class="lc-main">
     <view class="lc-container deck-container">
       <!-- Back -->
-      <view class="back-btn" bind:tap="onBack">
+      <view class="back-btn" bind:tap="onBack" hover-class="lc-hover-bg">
         <t-icon name="chevron-left" size="36rpx" color="var(--lc-text-muted)" />
         <text class="back-text">Back</text>
   </view>
@@ -36,11 +33,11 @@
             </view>
           </view>
           <view class="deck-actions">
-            <button class="study-btn" bind:tap="onStartStudy">
+            <button class="study-btn" bind:tap="onStartStudy" hover-class="lc-hover-primary">
               <t-icon name="play" size="28rpx" color="#fff" />
               <text class="study-text">Study</text>
             </button>
-            <button class="review-btn" bind:tap="onStartReview">
+            <button class="review-btn" bind:tap="onStartReview" hover-class="lc-hover-bg">
               <t-icon name="time" size="28rpx" color="var(--lc-primary)" />
               <text class="review-text">Review {{deck.dueCount}}</text>
             </button>
@@ -62,7 +59,7 @@
       <view class="cards-section">
         <view class="lc-section-title">Cards ({{deckCards.length}})</view>
 
-        <view wx:if="{{isLoadingDeck}}" class="lc-card empty-card">
+        <view wx:if="{{isLoadingDeck && !deckCards.length}}" class="lc-card empty-card">
           <view class="lc-inline-loading" style="padding: 48rpx 0;">
             <view class="lc-mini-spinner" />
             <text class="lc-p">Loading cards...</text>
@@ -73,7 +70,7 @@
           <view class="lc-p" style="text-align:center; margin-bottom: 24rpx;">
             No cards yet. Add your first card to get started!
           </view>
-          <button class="lc-btn lc-btn-primary" bind:tap="onOpenAddModal">
+          <button class="lc-btn lc-btn-primary" bind:tap="onOpenAddModal" hover-class="lc-hover-primary">
             <t-icon name="add" size="36rpx" color="#fff" />
             <text style="margin-left: 12rpx;">Add First Card</text>
           </button>
@@ -81,7 +78,7 @@
 
         <view wx:else class="cards-list">
           <block wx:for="{{deckCards}}" wx:key="id">
-            <view class="card-item">
+            <view class="card-item" hover-class="lc-hover-border">
               <view class="card-content">
                 <view class="card-label">Question</view>
                 <view class="card-q">{{item.question}}</view>
@@ -89,10 +86,10 @@
                 <view class="card-a">{{item.answer}}</view>
               </view>
               <view class="card-actions">
-                <button class="icon-btn" catch:tap="onEditCard" data-id="{{item.id}}">
+                <button class="icon-btn" catch:tap="onEditCard" data-id="{{item.id}}" hover-class="lc-hover-bg">
                   <t-icon name="edit-1" size="28rpx" color="var(--lc-text-muted)" />
                 </button>
-                <button class="icon-btn danger" disabled="{{deletingId === item.id}}" catch:tap="onDeleteCard" data-id="{{item.id}}">
+                <button class="icon-btn danger" disabled="{{deletingId === item.id}}" catch:tap="onDeleteCard" data-id="{{item.id}}" hover-class="lc-hover-danger-bg">
                   <t-icon name="delete" size="28rpx" color="var(--lc-danger)" />
                 </button>
         </view>
@@ -104,7 +101,7 @@
   </view>
 
   <!-- Floating Add Button -->
-  <button wx:if="{{deckCards.length > 0}}" class="fab" bind:tap="onOpenAddModal">
+  <button wx:if="{{deckCards.length > 0}}" class="fab" bind:tap="onOpenAddModal" hover-class="lc-hover-primary">
     <t-icon name="add" size="44rpx" color="#fff" />
   </button>
 
@@ -113,7 +110,7 @@
     <view class="lc-modal modal-max" catch:tap="noop">
       <view class="lc-modal-header">
         <text class="lc-modal-title">{{editingCardId ? 'Edit Card' : 'Add New Card'}}</text>
-        <button class="lc-icon-btn" catch:tap="onCloseModal">
+        <button class="lc-icon-btn" catch:tap="onCloseModal" hover-class="lc-hover-bg">
           <t-icon name="close" size="40rpx" color="var(--lc-text-muted)" />
         </button>
       </view>

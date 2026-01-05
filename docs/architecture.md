@@ -44,7 +44,7 @@ miniprogram-2/
 ## Deck 分组策略（不新增 `decks` 集合）
 由于不新增 `decks` 集合，Deck 完全由 `cards.deckTitle` 聚合得出：\n- **Deck 标识**：`deckTitle`（string）\n- **Inbox**：`deckTitle` 缺失/空/`Inbox` → 归为同一组\n- **统计字段（前端计算）**：\n  - `totalCards`: 该 deck 下 cards 数量\n  - `dueCount`: `nextReviewAt` 缺失或 `<= now` 的数量\n  - `progress`: \(100 - dueCount/totalCards\) 粗略百分比（用于 UI 进度条）\n  - `lastStudied`: `lastReviewedAt` 最大值转相对时间\n+
 ## 云函数连接（不改云函数）
-前端通过 `[miniprogram/services/cloud.js](../miniprogram/services/cloud.js)` 统一调用：\n- `login`：返回 `openid`（用于前端查询 `_openid`）\n- `analyzeImage`：输入 `fileID`，返回 OCR `text`\n- `submitReview`：输入 `cardId` + `result(remember/forget)`，更新 `cards` 的 SRS 字段并更新 `user_stats`\n- `getGlobalRank`：返回 `top`（按 xp 排序）和 `me`（包含 rank）\n\n注意：`getGlobalRank` 的返回目前不包含 streak；由于不改云函数，排行榜页展示 streak 为 `-`。\n+
+前端通过 `[miniprogram/services/cloud.js](../miniprogram/services/cloud.js)` 统一调用：\n- `login`：返回 `openid`（用于前端查询 `_openid`）\n- `analyzeImage`：输入 `fileID`，返回 OCR `text`\n- `submitReview`：输入 `cardId` + `result(remember/forget)`，更新 `cards` 的 SRS 字段并更新 `user_stats`\n- `getGlobalRank`：返回 `top`（按 xp 排序）和 `me`（包含 rank；当前用于 Settings 页展示我的名次）\n\n注意：如果 Rank 页需要展示“所有用户”，且不改云函数，则需要将 `user_stats` 集合权限设置为“所有用户可读，仅创建者可写”。\n+
 ## 关键数据流
 
 ```mermaid
@@ -62,11 +62,10 @@ flowchart TD
   SubmitReviewFn -->|update_srs_nextReviewAt| CardsCollection
   SubmitReviewFn -->|update_xp_streak_dailyXp| UserStats[user_stats]
   GoalsPage[GoalsPage] -->|read_write_dailyGoal| UserStats
-  LeaderboardPage[LeaderboardPage] -->|call_getGlobalRank| GetGlobalRankFn[getGlobalRank_fn]
-  GetGlobalRankFn -->|top_me_rank| LeaderboardPage
+  LeaderboardPage[LeaderboardPage] -->|query_user_stats_public| UserStats[user_stats]
   SettingsPage[SettingsPage] -->|read_user_stats| UserStats
   SettingsPage -->|update_nickname_avatar| UserStats
 ```
 
 ## 运行与权限要点
-- **云能力初始化**：`app.js` 中 `wx.cloud.init({ env })`。\n- **读写隔离**：前端查询 cards/user_stats 都使用 `_openid` 过滤；跨用户排行榜仅通过云函数拿到。\n- **可扩展点**：若未来允许改云函数，可在 `getGlobalRank` 返回中补充 `streak`，并支持 Deck 邻居排名等。 
+- **云能力初始化**：`app.js` 中 `wx.cloud.init({ env })`。\n- **读写隔离**：cards 默认按 `_openid` 隔离；如需 Rank 展示所有用户且不改云函数，需要将 `user_stats` 设置为“所有用户可读”（会暴露 `_openid`，请评估隐私）。\n- **可扩展点**：若未来允许改云函数，可继续通过 `getGlobalRank` 做更严格的数据脱敏/限字段返回等。 

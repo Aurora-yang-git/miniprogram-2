@@ -1,5 +1,36 @@
 import { listCardsByDeckTitle, normalizeDeckTitle, createCard, updateCard, deleteCard } from '../../services/cards'
 
+const DECK_CACHE_PREFIX = 'deck_detail_cache_v1:'
+const DECK_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+function makeDeckCacheKey(deckTitle) {
+  const title = typeof deckTitle === 'string' ? deckTitle : ''
+  return `${DECK_CACHE_PREFIX}${encodeURIComponent(title)}`
+}
+
+function readDeckCache(deckTitle) {
+  try {
+    const key = makeDeckCacheKey(deckTitle)
+    const v = wx.getStorageSync && wx.getStorageSync(key)
+    const obj = typeof v === 'string' ? JSON.parse(v) : v
+    if (!obj || typeof obj !== 'object') return null
+    const ts = typeof obj.ts === 'number' ? obj.ts : 0
+    if (!ts || Date.now() - ts > DECK_CACHE_TTL_MS) return null
+    return obj
+  } catch (e) {
+    return null
+  }
+}
+
+function writeDeckCache(deckTitle, payload) {
+  try {
+    const key = makeDeckCacheKey(deckTitle)
+    wx.setStorageSync && wx.setStorageSync(key, payload)
+  } catch (e) {
+    // ignore
+  }
+}
+
 function getAppUiState() {
   try {
     const app = getApp()
@@ -31,8 +62,9 @@ function computeDeckMeta(deckTitle, rawCards, now = Date.now()) {
     const next = typeof c.nextReviewAt === 'number' ? c.nextReviewAt : null
     return next === null || next <= now
   }).length
+  const learnedCount = Math.max(0, totalCards - dueCount)
   const progress = totalCards
-    ? Math.max(0, Math.min(100, 100 - Math.round((dueCount / totalCards) * 100)))
+    ? Math.max(0, Math.min(100, Math.round((learnedCount / totalCards) * 100)))
     : 0
 
   const tagCounts = new Map()
@@ -147,7 +179,9 @@ Page({
       deckCards: []
     })
 
-    await this.loadDeck()
+    const hasCache = this.hydrateDeckCache(deckTitle)
+    if (hasCache) this.loadDeck({ silent: true })
+    else await this.loadDeck({ silent: false })
   },
 
   onShow() {
@@ -157,19 +191,36 @@ Page({
 
   noop() {},
 
-  async loadDeck() {
+  hydrateDeckCache(deckTitle) {
+    const cached = readDeckCache(deckTitle)
+    if (!cached) return false
+    const deck = cached && typeof cached.deck === 'object' && cached.deck ? cached.deck : null
+    const deckCards = Array.isArray(cached.deckCards) ? cached.deckCards : []
+    if (!deck || !deckCards.length) return false
+    this.setData({
+      deck,
+      deckCards,
+      isLoadingDeck: false
+    })
+    return true
+  },
+
+  async loadDeck({ silent = false } = {}) {
     if (!wx.cloud || !wx.cloud.database) {
-      wx.showToast({ title: '云能力不可用', icon: 'none' })
-      this.setData({
-        isLoadingDeck: false,
-        deckCards: [],
-        deck: { ...this.data.deck, dueCount: 0, progress: 0, tags: [] }
-      })
+      if (!Array.isArray(this.data.deckCards) || !this.data.deckCards.length) {
+        wx.showToast({ title: '云能力不可用', icon: 'none' })
+        this.setData({
+          isLoadingDeck: false,
+          deckCards: [],
+          deck: { ...this.data.deck, dueCount: 0, progress: 0, tags: [] }
+        })
+      }
       return
     }
 
     try {
-      this.setData({ isLoadingDeck: true })
+      const hasAny = Array.isArray(this.data.deckCards) && this.data.deckCards.length > 0
+      if (!silent && !hasAny) this.setData({ isLoadingDeck: true })
       const rawCards = await listCardsByDeckTitle(this.data.deckTitle)
       const deckCards = (Array.isArray(rawCards) ? rawCards : []).map((c) => ({
         id: c && c._id ? c._id : (c && c.id ? c.id : ''),
@@ -180,10 +231,13 @@ Page({
 
       const deck = computeDeckMeta(this.data.deckTitle, rawCards)
       this.setData({ deckCards, deck, isLoadingDeck: false })
+      writeDeckCache(this.data.deckTitle, { v: 1, ts: Date.now(), deck, deckCards })
     } catch (e) {
       console.error('loadDeck failed', e)
       this.setData({ isLoadingDeck: false })
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      if (!Array.isArray(this.data.deckCards) || !this.data.deckCards.length) {
+        wx.showToast({ title: '加载失败', icon: 'none' })
+      }
     }
   },
 

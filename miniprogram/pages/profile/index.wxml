@@ -5,9 +5,6 @@
   <view class="lc-header">
     <view class="lc-header-inner">
       <text class="lc-header-title">LearnCards</text>
-      <button class="lc-icon-btn" bind:tap="onToggleTheme">
-        <text style="font-size: 34rpx; color: var(--lc-text-muted);">{{theme === 'dark' ? '☀' : '☾'}}</text>
-      </button>
     </view>
   </view>
 
@@ -55,19 +52,19 @@
       <view class="group">
         <view class="group-title">Account</view>
         <view class="group-card">
-          <view class="row" bind:tap="onOpenEditUsername">
+          <view class="row" bind:tap="onOpenEditUsername" hover-class="lc-hover-bg">
             <t-icon name="edit" size="36rpx" color="var(--lc-text-muted)" />
             <text class="row-label">Username</text>
             <text class="row-value">{{username || 'Set username'}}</text>
             <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
           </view>
-          <view class="row" bind:tap="onRequestUserProfile">
+          <view class="row" bind:tap="onRequestUserProfile" hover-class="lc-hover-bg">
             <t-icon name="user" size="36rpx" color="var(--lc-text-muted)" />
             <text class="row-label">Profile</text>
             <text class="row-value">Student</text>
             <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
           </view>
-          <view class="row" bind:tap="onToggleNotifications">
+          <view class="row" bind:tap="onToggleNotifications" hover-class="lc-hover-bg">
             <t-icon name="notification" size="36rpx" color="var(--lc-text-muted)" />
             <text class="row-label">Notifications</text>
             <text class="row-value">{{notifications ? 'Enabled' : 'Disabled'}}</text>
@@ -79,10 +76,14 @@
       <view class="group">
         <view class="group-title">Appearance</view>
         <view class="group-card">
-          <view class="row" bind:tap="onToggleTheme">
+          <view class="row" bind:tap="onOpenTheme" hover-class="lc-hover-bg">
             <t-icon name="star" size="36rpx" color="var(--lc-text-muted)" />
-            <text class="row-label">Dark Mode</text>
-            <text class="row-value">{{theme === 'dark' ? 'On' : 'Off'}}</text>
+            <text class="row-label">Theme</text>
+            <text class="row-value">
+              <block wx:if="{{themeMode === 'system'}}">System</block>
+              <block wx:elif="{{themeMode === 'dark'}}">Dark</block>
+              <block wx:else>Light</block>
+            </text>
             <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
           </view>
         </view>
@@ -91,12 +92,12 @@
       <view class="group">
         <view class="group-title">Data & Privacy</view>
         <view class="group-card">
-          <view class="row" bind:tap="onPrivacyPolicy">
+          <view class="row" bind:tap="onPrivacyPolicy" hover-class="lc-hover-bg">
             <t-icon name="lock-on" size="36rpx" color="var(--lc-text-muted)" />
             <text class="row-label">Privacy Policy</text>
             <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
           </view>
-          <view class="row" bind:tap="onExportData">
+          <view class="row" bind:tap="onExportData" hover-class="lc-hover-bg">
             <t-icon name="download" size="36rpx" color="var(--lc-text-muted)" />
             <text class="row-label">Export Data</text>
             <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
@@ -114,7 +115,7 @@
       </view>
 
       <!-- Sign Out -->
-      <button class="signout" bind:tap="onSignOut">
+      <button class="signout" bind:tap="onSignOut" hover-class="lc-hover-danger-bg">
         <t-icon name="logout" size="36rpx" color="var(--lc-danger)" />
         <text style="margin-left: 12rpx;">Sign Out</text>
       </button>
@@ -140,8 +141,37 @@
         <view class="lc-p" style="margin-top: 16rpx;">Max 20 characters.</view>
       </view>
       <view class="lc-modal-footer">
-        <button class="lc-btn lc-btn-outline" bind:tap="onCancelEditUsername">Cancel</button>
-        <button class="lc-btn lc-btn-primary" style="margin-left: 16rpx;" bind:tap="onSaveUsername">Save</button>
+        <button class="lc-btn lc-btn-outline" bind:tap="onCancelEditUsername" hover-class="lc-hover-bg">Cancel</button>
+        <button class="lc-btn lc-btn-primary" style="margin-left: 16rpx;" bind:tap="onSaveUsername" hover-class="lc-hover-primary">Save</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- Theme Modal -->
+  <view wx:if="{{isEditingTheme}}" class="lc-modal-overlay" catch:tap="onCloseTheme">
+    <view class="lc-modal" catch:tap="noop">
+      <view class="lc-modal-header">
+        <text class="lc-modal-title">Theme</text>
+      </view>
+      <view class="lc-modal-body">
+        <view class="lc-p" style="margin-bottom: 16rpx;">Choose appearance:</view>
+        <view class="preset-grid" style="grid-template-columns: repeat(3, 1fr);">
+          <view class="preset-item {{themeMode === 'system' ? 'is-active' : ''}}" data-mode="system" catch:tap="onPickThemeMode">
+            <view class="preset-num">System</view>
+            <view class="preset-sub">Follow WeChat</view>
+          </view>
+          <view class="preset-item {{themeMode === 'light' ? 'is-active' : ''}}" data-mode="light" catch:tap="onPickThemeMode">
+            <view class="preset-num">Light</view>
+            <view class="preset-sub">Always light</view>
+          </view>
+          <view class="preset-item {{themeMode === 'dark' ? 'is-active' : ''}}" data-mode="dark" catch:tap="onPickThemeMode">
+            <view class="preset-num">Dark</view>
+            <view class="preset-sub">Always dark</view>
+          </view>
+        </view>
+      </view>
+      <view class="lc-modal-footer">
+        <button class="lc-btn lc-btn-outline" bind:tap="onCloseTheme" hover-class="lc-hover-bg">Close</button>
       </view>
     </view>
   </view>

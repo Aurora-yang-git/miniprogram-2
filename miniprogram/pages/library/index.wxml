@@ -6,9 +6,6 @@
   <view class="lc-header">
     <view class="lc-header-inner">
       <text class="lc-header-title">LearnCards</text>
-      <button class="lc-icon-btn" bind:tap="onToggleTheme">
-        <text style="font-size: 34rpx; color: var(--lc-text-muted);">{{theme === 'dark' ? '☀' : '☾'}}</text>
-      </button>
     </view>
   </view>
 
@@ -41,6 +38,7 @@
             class="mode-item"
             data-id="{{item.id}}"
             bind:tap="onSelectMode"
+            hover-class="lc-hover-border"
           >
             <view class="mode-icon">
               <t-icon name="{{item.icon}}" size="48rpx" color="var(--lc-primary)" />
@@ -81,13 +79,14 @@
           wx:elif="{{selectedMode === 'scan' || selectedMode === 'upload'}}"
           class="upload-box"
           bind:tap="onPickImage"
+          hover-class="lc-hover-bg"
         >
           <t-icon name="{{selectedMode === 'scan' ? 'scan' : 'upload'}}" size="96rpx" color="var(--lc-text-subtle)" />
           <view class="upload-title">{{selectedMode === 'scan' ? 'Take a photo' : 'Click to upload'}}</view>
           <view class="upload-sub">{{selectedMode === 'scan' ? 'or select from gallery' : 'or drag and drop files here'}}</view>
           <view wx:if="{{pickedImages.length}}" class="upload-picked">
             <text>Selected: {{pickedImages.length}} images</text>
-            <text class="upload-clear" catch:tap="onClearImages">Clear</text>
+            <button class="upload-clear-btn" catch:tap="onClearImages" hover-class="lc-hover-bg">Clear</button>
           </view>
           <view wx:else class="upload-picked">Up to 9 images</view>
         </view>
@@ -110,6 +109,7 @@
           class="lc-btn lc-btn-primary create-btn"
           disabled="{{!deckTitle || (selectedMode === 'text' ? !inputText : pickedImages.length === 0)}}"
           bind:tap="onGenerate"
+          hover-class="lc-hover-primary"
         >
           <t-icon name="add" size="36rpx" color="#fff" />
           <text style="margin-left: 12rpx;">Generate Cards</text>

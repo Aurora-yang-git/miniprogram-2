@@ -92,10 +92,6 @@
   border-bottom: 0;
 }
 
-.row:active {
-  background: var(--lc-surface-2);
-}
-
 .row-label {
   flex: 1;
   font-size: 26rpx;
@@ -142,10 +138,6 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-}
-
-.signout:active {
-  background: rgba(220, 38, 38, 0.18);
 }
 
 .version {

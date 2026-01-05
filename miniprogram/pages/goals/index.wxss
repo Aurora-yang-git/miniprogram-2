@@ -149,10 +149,6 @@
   padding: 32rpx;
 }
 
-.stat-clickable:active {
-  border-color: var(--lc-primary);
-}
-
 .stat-top {
   display: flex;
   align-items: center;
@@ -178,7 +174,7 @@
 
 .weekly-card {
   margin-top: 40rpx;
-  padding: 40rpx;
+  padding: 48rpx;
 }
 
 .weekly-title {
@@ -192,8 +188,8 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 12rpx;
-  height: 240rpx;
+  gap: 16rpx;
+  height: 256rpx;
 }
 
 .weekly-item {
@@ -213,8 +209,9 @@
 
 .bar {
   width: 100%;
-  background: var(--lc-border);
+  background: var(--lc-surface-2);
   border-radius: 16rpx 16rpx 0 0;
+  min-height: 6rpx;
 }
 
 .bar.is-today {

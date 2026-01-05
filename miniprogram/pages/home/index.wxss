@@ -34,10 +34,6 @@
   z-index: 2;
 }
 
-.home-search-clear:active {
-  background: var(--lc-border);
-}
-
 .home-placeholder {
   color: var(--lc-text-subtle);
 }
@@ -105,10 +101,6 @@
   box-sizing: border-box;
 }
 
-.deck-card:active {
-  border-color: var(--lc-border-strong);
-}
-
 .deck-top {
   display: flex;
   align-items: flex-start;
@@ -150,13 +142,14 @@
 }
 
 .deck-menu-btn {
-  padding: 8rpx;
+  width: 72rpx;
+  height: 72rpx;
+  padding: 0;
   border-radius: var(--lc-radius-lg);
   background: transparent;
-}
-
-.deck-menu-btn:active {
-  background: var(--lc-surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .deck-menu {
@@ -179,10 +172,6 @@
   gap: 16rpx;
   padding: 20rpx 24rpx;
   color: var(--lc-text);
-}
-
-.deck-menu-item:active {
-  background: var(--lc-surface-2);
 }
 
 .deck-menu-text {

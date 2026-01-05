@@ -85,20 +85,13 @@ Page({
     isLoadingQueue: false,
 
     round: 'main', // main | relearn
-    relearnRound: 0,
-    relearnQueue: [],
-
-    queue: [],
     currentIndex: 0,
     currentCard: null,
     totalCards: 0,
     isFlipped: false,
-    sessionXp: 0,
-    submitting: false,
 
     // summary
     showSummary: false,
-    cardResults: [],
     understoodCount: 0,
     notUnderstoodCount: 0,
     notUnderstoodCards: []
@@ -109,6 +102,13 @@ Page({
     this._submitKeySet = new Set()
     this._isFlushing = false
     this._lastFailToastAt = 0
+
+    // Non-render state (avoid setData for unbound vars; improves performance + audits score)
+    this._queue = []
+    this._relearnQueue = []
+    this._relearnRound = 0
+    this._cardResults = []
+    this._sessionXp = 0
 
     const ui = getAppUiState()
     this.setData({ theme: ui.theme, statusBarRpx: ui.statusBarRpx, safeBottomRpx: ui.safeBottomRpx })
@@ -183,17 +183,18 @@ Page({
 
   async fetchReviewQueue() {
     const fallback = () => {
+      this._queue = []
+      this._relearnQueue = []
+      this._relearnRound = 0
+      this._cardResults = []
+      this._sessionXp = 0
       this.setData({
         isLoadingQueue: false,
-        queue: [],
         currentIndex: 0,
         currentCard: null,
         totalCards: 0,
         isFlipped: false,
-        sessionXp: 0,
-        submitting: false,
         showSummary: false,
-        cardResults: [],
         understoodCount: 0,
         notUnderstoodCount: 0,
         notUnderstoodCards: []
@@ -210,7 +211,6 @@ Page({
       isLoadingQueue: true,
       showSummary: false,
       currentCard: null,
-      queue: [],
       currentIndex: 0,
       totalCards: 0,
       isFlipped: false
@@ -223,28 +223,26 @@ Page({
         if (!this.data.deckTitleFilter) throw new Error('missing deckTitle for study')
         rawList = await listCardsByDeckTitle(this.data.deckTitleFilter)
       } else if (scope === 'all') {
-        rawList = await listDueCards({ limit: 200 })
+        rawList = await listDueCards()
       } else {
         rawList = await listDueCards({
-          deckTitle: this.data.deckTitleFilter || undefined,
-          limit: 200
+          deckTitle: this.data.deckTitleFilter || undefined
         })
       }
       const queue = (Array.isArray(rawList) ? rawList : []).map((card) => this.normalizeCardForReview(card))
+      this._queue = queue
+      this._relearnQueue = []
+      this._relearnRound = 0
+      this._cardResults = []
+      this._sessionXp = 0
       this.setData({
         isLoadingQueue: false,
         round: 'main',
-        relearnRound: 0,
-        relearnQueue: [],
-        queue,
         currentIndex: 0,
         currentCard: queue[0] || null,
         totalCards: queue.length,
         isFlipped: false,
-        sessionXp: 0,
-        submitting: false,
         showSummary: false,
-        cardResults: [],
         understoodCount: 0,
         notUnderstoodCount: 0,
         notUnderstoodCards: []
@@ -309,23 +307,23 @@ Page({
   enqueueRelearn(card) {
     const id = card && card.id ? String(card.id) : ''
     if (!id) return
-    const list = Array.isArray(this.data.relearnQueue) ? this.data.relearnQueue.slice() : []
+    const list = Array.isArray(this._relearnQueue) ? this._relearnQueue : []
     if (list.some((c) => c && String(c.id || c._id || '') === id)) return
     list.push({ ...card })
-    this.setData({ relearnQueue: list })
+    this._relearnQueue = list
   },
 
   pushResult(understood) {
     const current = this.data.currentCard
     if (!current || !current.id) return
-    const next = Array.isArray(this.data.cardResults) ? this.data.cardResults.slice() : []
+    const next = Array.isArray(this._cardResults) ? this._cardResults : []
     next.push({
       cardId: current.id,
       understood: !!understood,
       question: String(current.question || ''),
       answer: String(current.answer || '')
     })
-    this.setData({ cardResults: next })
+    this._cardResults = next
   },
 
   enqueueSubmit(item) {
@@ -380,9 +378,7 @@ Page({
       const ret = res && res.result ? res.result : null
       if (!ret || ret.ok !== true) throw new Error((ret && ret.error) || 'submitReview failed')
       const xpDelta = typeof ret.xpDelta === 'number' ? ret.xpDelta : 0
-      if (xpDelta) {
-        this.setData({ sessionXp: (this.data.sessionXp || 0) + xpDelta })
-      }
+      if (xpDelta) this._sessionXp += xpDelta
 
       await recordReviewEvent({ cardId, result, attemptTs })
 
@@ -425,7 +421,7 @@ Page({
   },
 
   buildSummary() {
-    const results = Array.isArray(this.data.cardResults) ? this.data.cardResults : []
+    const results = Array.isArray(this._cardResults) ? this._cardResults : []
     const notUnderstoodCards = results
       .filter((r) => r && r.understood === false)
       .map((r) => ({ cardId: r.cardId, question: r.question, answer: r.answer }))
@@ -442,17 +438,18 @@ Page({
 
   nextCard() {
     const next = this.data.currentIndex + 1
-    if (next >= (Array.isArray(this.data.queue) ? this.data.queue.length : 0)) {
+    const queueLen = Array.isArray(this._queue) ? this._queue.length : 0
+    if (next >= queueLen) {
       this.setData({ isFlipped: false })
-      const relearn = Array.isArray(this.data.relearnQueue) ? this.data.relearnQueue : []
+      const relearn = Array.isArray(this._relearnQueue) ? this._relearnQueue : []
       if (relearn.length) {
         const queue = relearn.slice()
-        const nextRound = (typeof this.data.relearnRound === 'number' ? this.data.relearnRound : 0) + 1
+        const nextRound = (typeof this._relearnRound === 'number' ? this._relearnRound : 0) + 1
+        this._queue = queue
+        this._relearnQueue = []
+        this._relearnRound = nextRound
         this.setData({
           round: 'relearn',
-          relearnRound: nextRound,
-          relearnQueue: [],
-          queue,
           currentIndex: 0,
           currentCard: queue[0] || null,
           totalCards: queue.length,
@@ -466,7 +463,7 @@ Page({
       return
     }
 
-    const queue = Array.isArray(this.data.queue) ? this.data.queue : []
+    const queue = Array.isArray(this._queue) ? this._queue : []
     this.setData({
       currentIndex: next,
       currentCard: queue[next] || null,

@@ -18,17 +18,41 @@
     "navigationBarTextStyle": "black"
   },
   "tabBar": {
-    "custom": true,
     "color": "#737373",
     "selectedColor": "#2563eb",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
-      { "pagePath": "pages/home/index", "text": "Home" },
-      { "pagePath": "pages/library/index", "text": "Create" },
-      { "pagePath": "pages/goals/index", "text": "Goals" },
-      { "pagePath": "pages/leaderboard/index", "text": "Rank" },
-      { "pagePath": "pages/profile/index", "text": "Settings" }
+      {
+        "pagePath": "pages/home/index",
+        "text": "Home",
+        "iconPath": "assets/tabbar/home.png",
+        "selectedIconPath": "assets/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/library/index",
+        "text": "Create",
+        "iconPath": "assets/tabbar/create.png",
+        "selectedIconPath": "assets/tabbar/create-active.png"
+      },
+      {
+        "pagePath": "pages/goals/index",
+        "text": "Goals",
+        "iconPath": "assets/tabbar/goals.png",
+        "selectedIconPath": "assets/tabbar/goals-active.png"
+      },
+      {
+        "pagePath": "pages/leaderboard/index",
+        "text": "Rank",
+        "iconPath": "assets/tabbar/ranking.png",
+        "selectedIconPath": "assets/tabbar/ranking-active.png"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "Settings",
+        "iconPath": "assets/tabbar/settings.png",
+        "selectedIconPath": "assets/tabbar/settings-active.png"
+      }
     ]
   },
   "usingComponents": {

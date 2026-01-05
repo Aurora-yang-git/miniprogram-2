@@ -23,7 +23,8 @@ function isDue(card, now) {
 async function listAll(where) {
   const db = getDb()
   const col = db.collection('cards')
-  const limit = 100
+  // WeChat Cloud DB client side returns at most 20 docs per request; paginate via skip.
+  const limit = 20
   let skip = 0
   let out = []
   while (true) {
@@ -66,7 +67,7 @@ async function listCardsByDeckTitle(deckTitle) {
   return cards
 }
 
-async function listDueCards({ deckTitle, limit = 20 } = {}) {
+async function listDueCards({ deckTitle, limit } = {}) {
   const openid = await getOpenid()
   const db = getDb()
   const _ = db.command
@@ -87,12 +88,31 @@ async function listDueCards({ deckTitle, limit = 20 } = {}) {
     ? _.and([{ _openid: openid }, dueCond, deckCond])
     : _.and([{ _openid: openid }, dueCond])
 
-  const res = await db
-    .collection('cards')
-    .where(where)
-    .limit(limit)
-    .get()
-  const list = res && Array.isArray(res.data) ? res.data : []
+  // paginate because each get() returns at most 20 docs
+  const pageSize = 20
+  let skip = 0
+  let list = []
+  while (true) {
+    // eslint-disable-next-line no-await-in-loop
+    const res = await db
+      .collection('cards')
+      .where(where)
+      .orderBy('updatedAt', 'desc')
+      .skip(skip)
+      .limit(pageSize)
+      .get()
+    const batch = res && Array.isArray(res.data) ? res.data : []
+    list = list.concat(batch)
+
+    if (typeof limit === 'number' && limit > 0 && list.length >= limit) {
+      list = list.slice(0, limit)
+      break
+    }
+    if (batch.length < pageSize) break
+    skip += pageSize
+    if (skip > 10000) break
+  }
+
   // sort by nextReviewAt asc (missing first)
   list.sort((a, b) => {
     const na = typeof a.nextReviewAt === 'number' ? a.nextReviewAt : 0
@@ -154,11 +174,12 @@ function computeDecksFromCards(cards, now = Date.now()) {
   list.forEach((card) => {
     const title = normalizeDeckTitle(card && card.deckTitle)
     if (!map.has(title)) {
-      map.set(title, { title, tagsCount: new Map(), totalCards: 0, dueCount: 0, lastReviewedAt: 0 })
+      map.set(title, { title, tagsCount: new Map(), totalCards: 0, dueCount: 0, learnedCount: 0, lastReviewedAt: 0 })
     }
     const agg = map.get(title)
     agg.totalCards += 1
     if (isDue(card, now)) agg.dueCount += 1
+    else agg.learnedCount += 1
     const last = typeof card.lastReviewedAt === 'number' ? card.lastReviewedAt : 0
     if (last > agg.lastReviewedAt) agg.lastReviewedAt = last
 
@@ -172,7 +193,7 @@ function computeDecksFromCards(cards, now = Date.now()) {
 
   const decks = Array.from(map.values()).map((d) => {
     const progress = d.totalCards
-      ? Math.max(0, Math.min(100, 100 - Math.round((d.dueCount / d.totalCards) * 100)))
+      ? Math.max(0, Math.min(100, Math.round((d.learnedCount / d.totalCards) * 100)))
       : 0
     const tags = Array.from(d.tagsCount.entries())
       .sort((a, b) => b[1] - a[1])

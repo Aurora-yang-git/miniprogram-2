@@ -1,5 +1,8 @@
 {
+  "name": "learncards-miniprogram",
+  "private": true,
+  "description": "学习卡子（LearnCards）微信小程序项目：用于小程序端 npm 依赖管理与构建",
   "dependencies": {
-    "wx-server-sdk": "^1.8.3"
+    "tdesign-miniprogram": "^1.12.1"
   }
 }

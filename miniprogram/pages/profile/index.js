@@ -47,7 +47,11 @@ Page({
 
     username: '',
     isEditingUsername: false,
-    tempUsername: ''
+    tempUsername: '',
+
+    // theme
+    themeMode: 'system', // system | light | dark
+    isEditingTheme: false
   },
 
   onLoad() {
@@ -55,6 +59,7 @@ Page({
     this.setData({ theme: ui.theme, statusBarRpx: ui.statusBarRpx, safeBottomRpx: ui.safeBottomRpx })
 
     this.hydrateNotifications()
+    this.hydrateThemeMode()
     this.refreshAll(true)
   },
 
@@ -67,7 +72,72 @@ Page({
     const tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null
     if (tabBar && tabBar.setData) tabBar.setData({ selected: 4, theme: ui.theme })
 
+    // 未授权用户进入 Settings 时提示去授权（昵称/头像用于排行榜展示）
+    this._authPromptedThisShow = false
+    this.maybePromptLogin()
+
     this.refreshAll(false)
+  },
+
+  hydrateThemeMode() {
+    try {
+      const app = getApp()
+      const mode = app && typeof app.getThemeMode === 'function' ? app.getThemeMode() : 'system'
+      this.setData({ themeMode: mode === 'dark' || mode === 'light' ? mode : 'system' })
+    } catch (e) {
+      this.setData({ themeMode: 'system' })
+    }
+  },
+
+  onOpenTheme() {
+    this.setData({ isEditingTheme: true })
+  },
+
+  onCloseTheme() {
+    this.setData({ isEditingTheme: false })
+  },
+
+  onPickThemeMode(e) {
+    const mode = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.mode : ''
+    if (mode !== 'system' && mode !== 'light' && mode !== 'dark') return
+    const app = getApp()
+    try {
+      if (app && typeof app.setThemeMode === 'function') app.setThemeMode(mode)
+    } catch (err) {
+      // ignore
+    }
+    const ui = getAppUiState()
+    this.setData({ theme: ui.theme, themeMode: mode, isEditingTheme: false })
+  },
+
+  isProfileAuthorized() {
+    try {
+      const info = wx.getStorageSync && wx.getStorageSync('userInfo')
+      if (!info || typeof info !== 'object') return false
+      const nickName = typeof info.nickName === 'string' ? info.nickName : ''
+      const avatarUrl = typeof info.avatarUrl === 'string' ? info.avatarUrl : ''
+      return !!(nickName || avatarUrl)
+    } catch (e) {
+      return false
+    }
+  },
+
+  maybePromptLogin() {
+    if (this._authPromptedThisShow) return
+    if (this.isProfileAuthorized()) return
+    this._authPromptedThisShow = true
+
+    wx.showModal({
+      title: '微信授权',
+      content: '是否授权获取微信昵称和头像？用于排行榜展示。',
+      confirmText: '去授权',
+      cancelText: '暂不',
+      success: (res) => {
+        if (res && res.confirm) {
+          this.onRequestUserProfile()
+        }
+      }
+    })
   },
 
   hydrateNotifications() {

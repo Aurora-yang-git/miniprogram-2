@@ -69,10 +69,6 @@
   font-size: 26rpx;
 }
 
-.study-btn:active {
-  background: var(--lc-primary-hover);
-}
-
 .study-text {
   color: #fff;
   font-weight: 600;
@@ -90,10 +86,6 @@
   color: var(--lc-primary);
   font-size: 24rpx;
   box-sizing: border-box;
-}
-
-.review-btn:active {
-  background: var(--lc-primary-50);
 }
 
 .review-text {
@@ -146,10 +138,6 @@
   box-sizing: border-box;
 }
 
-.card-item:active {
-  border-color: var(--lc-border-strong);
-}
-
 .card-content {
   flex: 1;
   min-width: 0;
@@ -184,14 +172,6 @@
   background: transparent;
 }
 
-.icon-btn:active {
-  background: var(--lc-surface-2);
-}
-
-.icon-btn.danger:active {
-  background: var(--lc-danger-50);
-}
-
 .fab {
   position: fixed;
   right: 48rpx;
@@ -205,10 +185,6 @@
   justify-content: center;
   box-shadow: 0 20rpx 40rpx rgba(0, 0, 0, 0.18);
   z-index: 1500;
-}
-
-.fab:active {
-  background: var(--lc-primary-hover);
 }
 
 .modal-max {

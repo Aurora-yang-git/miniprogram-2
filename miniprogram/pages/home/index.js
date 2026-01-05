@@ -2,6 +2,32 @@ import { listUserCards, computeDecksFromCards, extractFiltersFromDecks, deleteDe
 import { ensureDefaultDecks, isDefaultDeckTitle, optOutDefaultDeck } from '../../services/defaultDecks'
 import { resumePendingCreateJob } from '../../services/pendingCreate'
 
+const HOME_CACHE_KEY = 'home_decks_cache_v1'
+const HOME_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+function readHomeCache() {
+  try {
+    const v = wx.getStorageSync && wx.getStorageSync(HOME_CACHE_KEY)
+    const obj = typeof v === 'string' ? JSON.parse(v) : v
+    if (!obj || typeof obj !== 'object') return null
+    const ts = typeof obj.ts === 'number' ? obj.ts : 0
+    if (!ts || Date.now() - ts > HOME_CACHE_TTL_MS) return null
+    const decks = Array.isArray(obj.decks) ? obj.decks : []
+    const filters = Array.isArray(obj.filters) ? obj.filters : []
+    return { ts, decks, filters }
+  } catch (e) {
+    return null
+  }
+}
+
+function writeHomeCache(payload) {
+  try {
+    wx.setStorageSync && wx.setStorageSync(HOME_CACHE_KEY, payload)
+  } catch (e) {
+    // ignore
+  }
+}
+
 function getAppUiState() {
   try {
     const app = getApp()
@@ -53,20 +79,43 @@ Page({
     const tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null
     if (tabBar && tabBar.setData) tabBar.setData({ selected: 0, theme: ui.theme })
 
-    // Ensure built-in decks are complete and properly titled (ACT/CSP),
-    // then refresh decks after create/review.
+    // Fast path: render cached decks immediately, refresh silently in background.
+    const hasCache = this.hydrateDeckCache()
+
+    // Ensure built-in decks are complete and properly titled (ACT/CSP).
     try {
       if (wx.cloud && wx.cloud.database) {
-        await ensureDefaultDecks()
+        if (hasCache) ensureDefaultDecks().catch(() => {})
+        else await ensureDefaultDecks()
       }
     } catch (e) {
       // ignore
     }
-    this.loadDecks()
+
+    this.loadDecks({ silent: hasCache })
 
     // If user backgrounded during Create Step3, resume saving in the background,
     // then refresh decks so the new cards/deck appear without re-entering Home.
     this.resumePendingCreateAndRefresh()
+  },
+
+  hydrateDeckCache() {
+    const cached = readHomeCache()
+    if (!cached) return false
+    const decks = Array.isArray(cached.decks) ? cached.decks : []
+    const filters = Array.isArray(cached.filters) && cached.filters.length ? cached.filters : extractFiltersFromDecks(decks)
+    const currentActive = String(this.data.activeFilter || 'All')
+    const nextActive = filters.includes(currentActive) ? currentActive : 'All'
+    const q = String(this.data.searchQuery || '').trim().toLowerCase()
+    const filteredDecks = decks.filter((deck) => {
+      const title = String(deck && deck.title ? deck.title : '')
+      const tags = Array.isArray(deck && deck.tags) ? deck.tags : []
+      const matchesSearch = !q || title.toLowerCase().includes(q)
+      const matchesFilter = nextActive === 'All' || tags.includes(nextActive)
+      return matchesSearch && matchesFilter
+    })
+    this.setData({ decks, filters, activeFilter: nextActive, filteredDecks })
+    return true
   },
 
   async resumePendingCreateAndRefresh() {
@@ -75,7 +124,7 @@ Page({
     try {
       const ret = await resumePendingCreateJob()
       if (ret && ret.ok === true) {
-        await this.loadDecks()
+        await this.loadDecks({ silent: true })
       }
     } catch (e) {
       // ignore
@@ -84,7 +133,7 @@ Page({
     }
   },
 
-  async loadDecks() {
+  async loadDecks({ silent = false } = {}) {
     const seq = (this._loadDecksSeq = (this._loadDecksSeq || 0) + 1)
 
     if (!wx.cloud || !wx.cloud.database) {
@@ -95,7 +144,8 @@ Page({
     }
 
     try {
-      this.setData({ isLoadingDecks: true })
+      const hasAnyDecks = Array.isArray(this.data.decks) && this.data.decks.length > 0
+      if (!silent && !hasAnyDecks) this.setData({ isLoadingDecks: true })
       const cards = await listUserCards()
       if (seq !== this._loadDecksSeq) return
       const decks = computeDecksFromCards(cards)
@@ -118,6 +168,7 @@ Page({
           filteredDecks,
           isLoadingDecks: false
         })
+        writeHomeCache({ v: 1, ts: Date.now(), decks, filters })
       }
     } catch (e) {
       if (seq !== this._loadDecksSeq) return

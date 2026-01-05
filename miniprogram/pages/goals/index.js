@@ -1,6 +1,30 @@
 import { loadMyStats, updateDailyGoal } from '../../services/userStats'
 import { getWeekMonthStats } from '../../services/activity'
 
+const GOALS_CACHE_KEY = 'goals_stats_cache_v1'
+const GOALS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+function readGoalsCache() {
+  try {
+    const v = wx.getStorageSync && wx.getStorageSync(GOALS_CACHE_KEY)
+    const obj = typeof v === 'string' ? JSON.parse(v) : v
+    if (!obj || typeof obj !== 'object') return null
+    const ts = typeof obj.ts === 'number' ? obj.ts : 0
+    if (!ts || Date.now() - ts > GOALS_CACHE_TTL_MS) return null
+    return obj
+  } catch (e) {
+    return null
+  }
+}
+
+function writeGoalsCache(payload) {
+  try {
+    wx.setStorageSync && wx.setStorageSync(GOALS_CACHE_KEY, payload)
+  } catch (e) {
+    // ignore
+  }
+}
+
 function getAppUiState() {
   try {
     const app = getApp()
@@ -22,6 +46,7 @@ Page({
     safeBottomRpx: 0,
 
     isLoadingStats: false,
+    hasStatsCache: false,
 
     dailyGoal: 20,
     cardsStudiedToday: 0,
@@ -53,7 +78,8 @@ Page({
     const tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null
     if (tabBar && tabBar.setData) tabBar.setData({ selected: 2, theme: ui.theme })
 
-    this.loadStats()
+    const hasCache = this.hydrateStatsCache()
+    this.loadStats({ silent: hasCache })
   },
 
   noop() {},
@@ -97,7 +123,38 @@ Page({
     this.setData({ progressPercentage: pct, remaining })
   },
 
-  async loadStats() {
+  hydrateStatsCache() {
+    const cached = readGoalsCache()
+    if (!cached) return false
+    const dailyGoal = typeof cached.dailyGoal === 'number' && cached.dailyGoal > 0 ? cached.dailyGoal : 20
+    const cardsStudiedToday = typeof cached.cardsStudiedToday === 'number' ? cached.cardsStudiedToday : 0
+    const currentStreak = typeof cached.currentStreak === 'number' ? cached.currentStreak : 0
+    const weekTotal = typeof cached.weekTotal === 'number' ? cached.weekTotal : 0
+    const monthTotal = typeof cached.monthTotal === 'number' ? cached.monthTotal : 0
+    const todayIndex = typeof cached.todayIndex === 'number' ? cached.todayIndex : 6
+    const weeklyDays = Array.isArray(cached.weeklyDays) ? cached.weeklyDays : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const weeklyHeights = Array.isArray(cached.weeklyHeights) ? cached.weeklyHeights : [0, 0, 0, 0, 0, 0, 0]
+    const progressPercentage = typeof cached.progressPercentage === 'number' ? cached.progressPercentage : 0
+    const remaining = typeof cached.remaining === 'number' ? cached.remaining : 0
+
+    this.setData({
+      hasStatsCache: true,
+      dailyGoal,
+      tempGoal: dailyGoal,
+      cardsStudiedToday,
+      currentStreak,
+      weekTotal,
+      monthTotal,
+      todayIndex,
+      weeklyDays,
+      weeklyHeights,
+      progressPercentage,
+      remaining
+    })
+    return true
+  },
+
+  async loadStats({ silent = false } = {}) {
     // local goal fallback
     let localGoal = 20
     try {
@@ -125,14 +182,19 @@ Page({
     }
 
     try {
-      this.setData({ isLoadingStats: true })
+      if (!silent && !this.data.hasStatsCache) this.setData({ isLoadingStats: true })
       const ret = await loadMyStats()
       const activity = await getWeekMonthStats()
       const dailyGoal = ret && typeof ret.dailyGoal === 'number' && ret.dailyGoal > 0 ? ret.dailyGoal : localGoal
       const cardsStudiedToday = ret && typeof ret.cardsStudiedToday === 'number' ? ret.cardsStudiedToday : 0
       const currentStreak = ret && typeof ret.streak === 'number' ? ret.streak : 0
+      const g = Number(dailyGoal) || 0
+      const s = Number(cardsStudiedToday) || 0
+      const pct = g > 0 ? Math.min(100, Math.round((s / g) * 100)) : 0
+      const remaining = Math.max(0, g - s)
 
       this.setData({
+        hasStatsCache: true,
         dailyGoal,
         tempGoal: dailyGoal,
         cardsStudiedToday,
@@ -142,9 +204,24 @@ Page({
         todayIndex: activity && typeof activity.todayIndex === 'number' ? activity.todayIndex : 6,
         weeklyDays: activity && Array.isArray(activity.weeklyDays) ? activity.weeklyDays : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         weeklyHeights: activity && Array.isArray(activity.weeklyHeights) ? activity.weeklyHeights : [0, 0, 0, 0, 0, 0, 0],
+        progressPercentage: pct,
+        remaining,
         isLoadingStats: false
       })
-      this.calcProgress(cardsStudiedToday, dailyGoal)
+      writeGoalsCache({
+        v: 1,
+        ts: Date.now(),
+        dailyGoal,
+        cardsStudiedToday,
+        currentStreak,
+        weekTotal: activity && typeof activity.weekTotal === 'number' ? activity.weekTotal : 0,
+        monthTotal: activity && typeof activity.monthTotal === 'number' ? activity.monthTotal : 0,
+        todayIndex: activity && typeof activity.todayIndex === 'number' ? activity.todayIndex : 6,
+        weeklyDays: activity && Array.isArray(activity.weeklyDays) ? activity.weeklyDays : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        weeklyHeights: activity && Array.isArray(activity.weeklyHeights) ? activity.weeklyHeights : [0, 0, 0, 0, 0, 0, 0],
+        progressPercentage: pct,
+        remaining
+      })
     } catch (e) {
       console.error('loadStats failed', e)
       this.setData({
@@ -187,14 +264,39 @@ Page({
     const next = Number(this.data.tempGoal)
     if (!Number.isFinite(next) || next <= 0) return
 
-    this.setData({ dailyGoal: next, isEditingGoal: false })
-    this.calcProgress(this.data.cardsStudiedToday, next)
+    const g = Number(next) || 0
+    const s = Number(this.data.cardsStudiedToday) || 0
+    const pct = g > 0 ? Math.min(100, Math.round((s / g) * 100)) : 0
+    const remaining = Math.max(0, g - s)
+
+    this.setData({
+      dailyGoal: next,
+      isEditingGoal: false,
+      progressPercentage: pct,
+      remaining
+    })
 
     try {
       wx.setStorageSync && wx.setStorageSync('dailyGoal', next)
     } catch (e) {
       // ignore
     }
+
+    // keep cache consistent for instant next open
+    writeGoalsCache({
+      v: 1,
+      ts: Date.now(),
+      dailyGoal: next,
+      cardsStudiedToday: this.data.cardsStudiedToday,
+      currentStreak: this.data.currentStreak,
+      weekTotal: this.data.weekTotal,
+      monthTotal: this.data.monthTotal,
+      todayIndex: this.data.todayIndex,
+      weeklyDays: this.data.weeklyDays,
+      weeklyHeights: this.data.weeklyHeights,
+      progressPercentage: pct,
+      remaining
+    })
 
     try {
       if (wx.cloud && wx.cloud.database) {

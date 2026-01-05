@@ -55,6 +55,14 @@
   justify-content: center;
 }
 
+.avatar-col {
+  width: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .rank-text {
   font-size: 24rpx;
   font-weight: 600;

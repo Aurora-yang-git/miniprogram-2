@@ -46,18 +46,18 @@ Page({
 
     pickedImages: [],
 
-    isGenerating: false,
     step3Phase: 'idle', // idle | ocr | generate | write | done
     step3Title: '',
     step3Subtitle: '',
     ocrDone: 0,
     ocrTotal: 0,
     writeDone: 0,
-    writeTotal: 0,
-    generatedCount: 0
+    writeTotal: 0
   },
 
   onLoad() {
+    this._isGenerating = false
+
     const ui = getAppUiState()
     this.setData({
       theme: ui.theme,
@@ -97,15 +97,13 @@ Page({
           inputText: '',
           knowledge: '',
           isFeynmanEntry: entry === 'feynman',
-          isGenerating: false,
           step3Phase: 'idle',
           step3Title: '',
           step3Subtitle: '',
           ocrDone: 0,
           ocrTotal: 0,
           writeDone: 0,
-          writeTotal: 0,
-          generatedCount: 0
+          writeTotal: 0
         })
         wx.setStorageSync && wx.setStorageSync('createMode', '')
         wx.setStorageSync && wx.setStorageSync('createEntry', '')
@@ -120,15 +118,13 @@ Page({
           inputText: '',
           knowledge: '',
           isFeynmanEntry: true,
-          isGenerating: false,
           step3Phase: 'idle',
           step3Title: '',
           step3Subtitle: '',
           ocrDone: 0,
           ocrTotal: 0,
           writeDone: 0,
-          writeTotal: 0,
-          generatedCount: 0
+          writeTotal: 0
         })
         wx.setStorageSync && wx.setStorageSync('createEntry', '')
       }
@@ -139,15 +135,15 @@ Page({
 
   async resumePendingSaves() {
     if (this._isResumingSaves) return
-    if (this.data && this.data.isGenerating) return
+    if (this._isGenerating) return
     this._isResumingSaves = true
+    this._isGenerating = true
     try {
       const ret = await resumePendingCreateJob({
         onProgress: ({ done, total }) => {
           this.setData({
             step: 'generate',
             currentStepIndex: stepToIndex('generate'),
-            isGenerating: true,
             step3Phase: 'write',
             step3Title: 'Saving cards...',
             step3Subtitle: 'Resuming previous save',
@@ -163,14 +159,13 @@ Page({
       this.setData({
         step: 'complete',
         currentStepIndex: stepToIndex('complete'),
-        isGenerating: false,
         step3Phase: 'done'
       })
     } catch (e) {
       // keep pending job for next time
       console.error('resumePendingSaves failed', e)
-      this.setData({ isGenerating: false })
     } finally {
+      this._isGenerating = false
       this._isResumingSaves = false
     }
   },
@@ -185,15 +180,13 @@ Page({
       pickedImages: [],
       inputText: '',
       isFeynmanEntry: false,
-      isGenerating: false,
       step3Phase: 'idle',
       step3Title: '',
       step3Subtitle: '',
       ocrDone: 0,
       ocrTotal: 0,
       writeDone: 0,
-      writeTotal: 0,
-      generatedCount: 0
+      writeTotal: 0
     })
   },
 
@@ -282,7 +275,7 @@ Page({
   async onGenerate() {
     const title = String(this.data.deckTitle || '').trim()
     if (!title) return
-    if (this.data.isGenerating) return
+    if (this._isGenerating) return
 
     let sourceText = ''
     let pendingJobSet = false
@@ -300,6 +293,7 @@ Page({
       }
     }
 
+    this._isGenerating = true
     try {
       const ocrTotal = this.data.selectedMode === 'text'
         ? 0
@@ -308,7 +302,6 @@ Page({
           this.setData({
         step: 'generate',
         currentStepIndex: stepToIndex('generate'),
-        isGenerating: true,
         step3Phase: this.data.selectedMode === 'text' ? 'generate' : 'ocr',
         step3Title: this.data.selectedMode === 'text' ? 'Generating cards...' : 'Extracting text...',
         step3Subtitle: this.data.selectedMode === 'text'
@@ -317,8 +310,7 @@ Page({
         ocrDone: 0,
         ocrTotal,
         writeDone: 0,
-        writeTotal: 0,
-        generatedCount: 0
+        writeTotal: 0
       })
 
       if (this.data.selectedMode !== 'text') {
@@ -340,8 +332,7 @@ Page({
         step3Title: 'Saving cards...',
         step3Subtitle: 'Writing generated cards to database',
         writeDone: 0,
-        writeTotal: total,
-        generatedCount: total
+        writeTotal: total
       })
 
       const toSave = (Array.isArray(cards) ? cards : []).map((c) => {
@@ -362,7 +353,6 @@ Page({
       wx.showToast({ title: `已生成并保存 ${total} 张卡片`, icon: 'success' })
       this.setData({
         step3Phase: 'done',
-        isGenerating: false,
         step: 'complete',
         currentStepIndex: stepToIndex('complete')
       })
@@ -370,13 +360,14 @@ Page({
       console.error('generate/write cards failed', e)
       wx.showToast({ title: pendingJobSet ? '保存中断，下次打开会自动继续' : '生成失败，请重试', icon: 'none' })
       this.setData({
-        isGenerating: false,
         step3Phase: 'idle',
         step3Title: '',
         step3Subtitle: '',
         step: 'input',
         currentStepIndex: stepToIndex('input')
       })
+    } finally {
+      this._isGenerating = false
     }
   },
 

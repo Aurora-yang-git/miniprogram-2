@@ -8,6 +8,8 @@ const DEFAULT_DECK_TITLES = [
   'CSP期中复习卡片'
 ]
 
+const DEFAULT_DECKS_DEDUPE_VERSION = 1
+
 function containsCjk(text) {
   return /[\u4e00-\u9fff]/.test(String(text || ''))
 }
@@ -199,6 +201,66 @@ async function updateUserStatsDefaultsMeta(statsId, patch) {
   })
 }
 
+async function listAllBuiltInCardsByDeck(db, openid, deckTitle) {
+  if (!db || !openid || !deckTitle) return []
+  const pageSize = 20
+  let skip = 0
+  let out = []
+  while (true) {
+    // eslint-disable-next-line no-await-in-loop
+    const res = await db
+      .collection('cards')
+      .where({ _openid: openid, deckTitle, builtIn: true })
+      .skip(skip)
+      .limit(pageSize)
+      .get()
+    const batch = res && Array.isArray(res.data) ? res.data : []
+    out = out.concat(batch)
+    if (batch.length < pageSize) break
+    skip += pageSize
+    if (skip > 10000) break
+  }
+  return out
+}
+
+async function dedupeBuiltInByQuestion(db, openid, deckTitle) {
+  // Only dedupe exact duplicates (same question) for builtIn cards.
+  const cards = await listAllBuiltInCardsByDeck(db, openid, deckTitle)
+  if (!cards.length) return { removed: 0, total: 0 }
+
+  const groups = new Map()
+  cards.forEach((c) => {
+    const q = typeof c.question === 'string' ? c.question.trim() : ''
+    if (!q) return
+    if (!groups.has(q)) groups.set(q, [])
+    groups.get(q).push(c)
+  })
+
+  const toRemove = []
+  groups.forEach((arr) => {
+    if (!Array.isArray(arr) || arr.length <= 1) return
+    // keep first, remove the rest
+    for (let i = 1; i < arr.length; i += 1) {
+      const id = arr[i] && (arr[i]._id || arr[i].id)
+      if (id) toRemove.push(String(id))
+    }
+  })
+
+  if (!toRemove.length) return { removed: 0, total: cards.length }
+
+  const _ = db.command
+  const batchSize = 20
+  let removed = 0
+  for (let i = 0; i < toRemove.length; i += batchSize) {
+    const chunk = toRemove.slice(i, i + batchSize)
+    // eslint-disable-next-line no-await-in-loop
+    const res = await db.collection('cards').where({ _id: _.in(chunk) }).remove()
+    removed += res && typeof res.stats === 'object' && typeof res.stats.removed === 'number' ? res.stats.removed : 0
+  }
+
+  return { removed, total: cards.length }
+}
+
 async function optOutDefaultDeck(deckTitle) {
   const title = typeof deckTitle === 'string' ? deckTitle.trim() : ''
   if (!isDefaultDeckTitle(title)) return
@@ -230,6 +292,7 @@ async function ensureDefaultDecks() {
     const stats = await ensureUserStats()
     const statsId = stats && typeof stats._id === 'string' ? stats._id : ''
     const optOut = Array.isArray(stats.defaultDecksOptOut) ? stats.defaultDecksOptOut : []
+    const dedupeVer = stats && typeof stats.defaultDecksDedupeVersion === 'number' ? stats.defaultDecksDedupeVersion : 0
 
     const db = wx.cloud.database()
     const openid = await getOpenid()
@@ -240,6 +303,17 @@ async function ensureDefaultDecks() {
     // If ACT deck exists but was seeded with the old Q/A direction, fix it in-place.
     await migrateBuiltInActDeck(db, openid)
 
+    // One-time builtIn dedupe (prevents ACT/CSP growing to hundreds due to sampling).
+    if (statsId && dedupeVer < DEFAULT_DECKS_DEDUPE_VERSION) {
+      for (let i = 0; i < DEFAULT_DECK_TITLES.length; i += 1) {
+        const t = DEFAULT_DECK_TITLES[i]
+        if (optOut.includes(t)) continue
+        // eslint-disable-next-line no-await-in-loop
+        await dedupeBuiltInByQuestion(db, openid, t)
+      }
+      await updateUserStatsDefaultsMeta(statsId, { defaultDecksDedupeVersion: DEFAULT_DECKS_DEDUPE_VERSION })
+    }
+
     for (let d = 0; d < decks.length; d += 1) {
       const deck = decks[d]
       const title = deck && typeof deck.deckTitle === 'string' ? deck.deckTitle : ''
@@ -249,13 +323,10 @@ async function ensureDefaultDecks() {
       const cards = Array.isArray(deck.cards) ? deck.cards : []
 
       // Top-up mode: if seeding was interrupted, add missing cards (avoid duplicates by question).
+      // IMPORTANT: do not sample with limit(200); once duplicates grow, sampling can miss questions and re-add them.
+      // Build the existingQ set with full pagination.
       // eslint-disable-next-line no-await-in-loop
-      const existingRes = await db
-        .collection('cards')
-        .where({ _openid: openid, deckTitle: title, builtIn: true })
-        .limit(200)
-        .get()
-      const existing = existingRes && Array.isArray(existingRes.data) ? existingRes.data : []
+      const existing = await listAllBuiltInCardsByDeck(db, openid, title)
       const existingQ = new Set(existing.map((c) => (typeof c.question === 'string' ? c.question.trim() : '')).filter(Boolean))
 
       for (let i = 0; i < cards.length; i += 1) {

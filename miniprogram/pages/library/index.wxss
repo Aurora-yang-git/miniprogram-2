@@ -77,10 +77,6 @@
   box-sizing: border-box;
 }
 
-.mode-item:active {
-  border-color: var(--lc-primary);
-}
-
 .mode-icon {
   width: 96rpx;
   height: 96rpx;
@@ -155,13 +151,17 @@
   gap: 16rpx;
 }
 
-.upload-clear {
+.upload-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8rpx 16rpx;
+  border-radius: var(--lc-radius-full);
+  background: var(--lc-surface-2);
+  border: 2rpx solid var(--lc-border);
   color: var(--lc-primary);
   font-weight: 600;
-}
-
-.upload-clear:active {
-  opacity: 0.7;
+  font-size: 22rpx;
 }
 
 .create-btn {

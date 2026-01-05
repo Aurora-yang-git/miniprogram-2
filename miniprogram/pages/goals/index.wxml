@@ -5,9 +5,6 @@
   <view class="lc-header">
     <view class="lc-header-inner">
       <text class="lc-header-title">LearnCards</text>
-      <button class="lc-icon-btn" bind:tap="onToggleTheme">
-        <text style="font-size: 34rpx; color: var(--lc-text-muted);">{{theme === 'dark' ? '☀' : '☾'}}</text>
-      </button>
     </view>
   </view>
 
@@ -15,7 +12,7 @@
     <view class="lc-container">
       <view class="lc-h1">Daily Goals</view>
 
-      <view wx:if="{{isLoadingStats}}" class="lc-inline-loading" style="margin-top: 24rpx;">
+      <view wx:if="{{isLoadingStats && !hasStatsCache}}" class="lc-inline-loading" style="margin-top: 24rpx;">
         <view class="lc-mini-spinner" />
         <text class="lc-p">Loading...</text>
       </view>
@@ -102,7 +99,7 @@
           <view class="stat-value">{{currentStreak}} days</view>
         </view>
 
-        <view class="lc-card stat-card stat-clickable" bind:tap="onOpenEdit">
+        <view class="lc-card stat-card stat-clickable" bind:tap="onOpenEdit" hover-class="lc-hover-border">
           <view class="stat-top">
             <t-icon name="flag" size="36rpx" color="var(--lc-primary)" />
             <text class="stat-label">Daily Goal</text>
@@ -131,6 +128,9 @@
       <!-- Weekly Activity -->
       <view class="lc-card weekly-card">
         <view class="weekly-title">Weekly Activity</view>
+        <view wx:if="{{weekTotal === 0}}" class="lc-p" style="margin-bottom: 16rpx;">
+          No activity yet this week. Start a review session to build your streak!
+        </view>
         <view class="weekly-bars">
           <block wx:for="{{weeklyDays}}" wx:key="*this">
             <view class="weekly-item">

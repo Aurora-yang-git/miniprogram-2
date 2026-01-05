@@ -39,7 +39,8 @@ page {
   --lc-radius-full: 9999rpx;
 
   --lc-header-h: 128rpx;
-  --lc-tabbar-h: 128rpx;
+  /* Native tabBar already reserves space; keep extra padding at 0 by default. */
+  --lc-tabbar-h: 0rpx;
 
   font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: var(--lc-text);
@@ -115,8 +116,8 @@ page {
   justify-content: center;
   box-sizing: border-box;
 }
-.lc-icon-btn:active {
-  background: var(--lc-surface-2);
+.lc-icon-btn {
+  /* Prefer built-in hover state over :active for better UX (per audits). */
 }
 
 .lc-main {
@@ -210,8 +211,8 @@ textarea.lc-input {
   background: var(--lc-surface);
   box-sizing: border-box;
 }
-.lc-chip:active {
-  border-color: var(--lc-border-strong);
+.lc-chip {
+  /* click feedback is handled by hover-class on the component */
 }
 .lc-chip.is-active {
   background: var(--lc-primary);
@@ -233,8 +234,8 @@ textarea.lc-input {
   background: var(--lc-primary);
   color: #fff;
 }
-.lc-btn-primary:active {
-  background: var(--lc-primary-hover);
+.lc-btn-primary {
+  /* click feedback is handled by hover-class on the component */
 }
 
 .lc-btn-outline {
@@ -267,8 +268,8 @@ textarea.lc-input {
   gap: 16rpx;
   box-sizing: border-box;
 }
-.lc-tile:active {
-  border-color: var(--lc-primary);
+.lc-tile {
+  /* click feedback is handled by hover-class on the component */
 }
 
 .lc-badge {
@@ -291,6 +292,26 @@ textarea.lc-input {
   height: 100%;
   background: var(--lc-primary);
   border-radius: var(--lc-radius-full);
+}
+
+/* ==========
+   Hover states (prefer over :active)
+   ========== */
+
+.lc-hover-bg {
+  background: var(--lc-surface-2);
+}
+
+.lc-hover-border {
+  border-color: var(--lc-border-strong);
+}
+
+.lc-hover-primary {
+  background: var(--lc-primary-hover);
+}
+
+.lc-hover-danger-bg {
+  background: var(--lc-danger-50);
 }
 
 /* ==========

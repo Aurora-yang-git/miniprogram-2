@@ -6,9 +6,6 @@
   <view class="lc-header">
     <view class="lc-header-inner">
       <text class="lc-header-title">LearnCards</text>
-      <button class="lc-icon-btn" bind:tap="onToggleTheme">
-        <text style="font-size: 34rpx; color: var(--lc-text-muted);">{{theme === 'dark' ? '☀' : '☾'}}</text>
-      </button>
     </view>
   </view>
 
@@ -28,7 +25,7 @@
           wx:if="{{searchQuery}}"
           class="home-search-clear"
           catch:tap="onClearSearch"
-          aria-label="Clear search"
+          hover-class="lc-hover-bg"
         >
           ×
         </button>
@@ -43,6 +40,7 @@
             class="lc-chip {{activeFilter === item ? 'is-active' : ''}}"
             data-filter="{{item}}"
             bind:tap="onFilterTap"
+            hover-class="lc-hover-border"
           >
             {{item}}
           </view>
@@ -53,11 +51,11 @@
       <view class="home-section">
         <view class="lc-section-title">Quick Actions</view>
         <view class="lc-grid-2 home-quick-grid">
-          <view class="lc-tile" bind:tap="onQuickAction" data-action="reviewAll">
+          <view class="lc-tile" bind:tap="onQuickAction" data-action="reviewAll" hover-class="lc-hover-border">
             <t-icon name="time" size="48rpx" color="var(--lc-primary)" />
             <text class="home-tile-label">Review</text>
           </view>
-          <view class="lc-tile" bind:tap="onQuickAction" data-action="scan">
+          <view class="lc-tile" bind:tap="onQuickAction" data-action="scan" hover-class="lc-hover-border">
             <t-icon name="scan" size="48rpx" color="var(--lc-primary)" />
             <text class="home-tile-label">Scan Photo</text>
           </view>
@@ -74,7 +72,7 @@
           </view>
         </view>
 
-        <view wx:if="{{isLoadingDecks}}" class="lc-card home-empty">
+        <view wx:if="{{isLoadingDecks && decks.length === 0}}" class="lc-card home-empty">
           <view class="lc-inline-loading">
             <view class="lc-mini-spinner" />
             <text class="home-empty-text">Loading decks...</text>
@@ -87,7 +85,7 @@
           </block>
           <block wx:elif="{{searchQuery || activeFilter != 'All'}}">
             <text class="home-empty-text">No decks match your search / filter.</text>
-            <button class="lc-btn lc-btn-outline" style="margin-top: 24rpx;" bind:tap="onClearFilters">
+            <button class="lc-btn lc-btn-outline" style="margin-top: 24rpx;" bind:tap="onClearFilters" hover-class="lc-hover-bg">
               Clear filters
             </button>
           </block>
@@ -98,7 +96,7 @@
 
         <view wx:else class="home-deck-list">
           <block wx:for="{{filteredDecks}}" wx:key="id">
-            <view class="deck-card">
+            <view class="deck-card" hover-class="lc-hover-border">
               <view class="deck-top">
                 <view class="deck-main" bind:tap="onViewDeck" data-id="{{item.id}}">
                   <view class="deck-title">{{item.title}}</view>
@@ -115,7 +113,7 @@
                 </view>
                 <view class="deck-right">
                   <view wx:if="{{item.dueCount > 0}}" class="lc-badge">{{item.dueCount}}</view>
-                  <button class="deck-menu-btn" catch:tap="onToggleDeckMenu" data-id="{{item.id}}">
+                  <button class="deck-menu-btn" catch:tap="onToggleDeckMenu" data-id="{{item.id}}" hover-class="lc-hover-bg">
                     <t-icon name="more" size="40rpx" color="var(--lc-text-muted)" />
     </button>
                 </view>
@@ -123,23 +121,23 @@
 
               <!-- Dropdown Menu -->
               <view wx:if="{{menuDeckId === item.id}}" class="deck-menu">
-                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="detail" data-id="{{item.id}}">
+                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="detail" data-id="{{item.id}}" hover-class="lc-hover-bg">
                   <t-icon name="browse" size="28rpx" color="var(--lc-text-muted)" />
                   <text class="deck-menu-text">View Details</text>
                 </view>
-                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="study" data-id="{{item.id}}">
+                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="study" data-id="{{item.id}}" hover-class="lc-hover-bg">
                   <t-icon name="play" size="28rpx" color="var(--lc-text-muted)" />
                   <text class="deck-menu-text">Study (All)</text>
                 </view>
-                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="review" data-id="{{item.id}}">
+                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="review" data-id="{{item.id}}" hover-class="lc-hover-bg">
                   <t-icon name="time" size="28rpx" color="var(--lc-text-muted)" />
                   <text class="deck-menu-text">Review (Due)</text>
                 </view>
-                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="add" data-id="{{item.id}}">
+                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="add" data-id="{{item.id}}" hover-class="lc-hover-bg">
                   <t-icon name="add" size="28rpx" color="var(--lc-text-muted)" />
                   <text class="deck-menu-text">Add Cards</text>
                 </view>
-                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="delete" data-id="{{item.id}}">
+                <view class="deck-menu-item" catch:tap="onMenuAction" data-action="delete" data-id="{{item.id}}" hover-class="lc-hover-bg">
                   <t-icon name="delete" size="28rpx" color="var(--lc-danger)" />
                   <text class="deck-menu-text" style="color: var(--lc-danger);">Delete Deck</text>
                 </view>
