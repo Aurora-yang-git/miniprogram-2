@@ -1,6 +1,67 @@
-import { uploadImage, analyzeImage } from '../../services/ocr'
-import { generateCardsByDeepSeek } from '../../services/ai'
-import { setPendingCreateJob, resumePendingCreateJob } from '../../services/pendingCreate'
+import { uploadImage } from '../../services/ocr'
+import { createJob, listMyJobs, getJob, startJob } from '../../services/createJobs'
+import { formatRelativeTime } from '../../services/time'
+
+const JOBS_CACHE_KEY = 'create_jobs_cache_v1'
+const JOBS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+function toMs(val) {
+  if (!val) return 0
+  if (typeof val === 'number') return val
+  if (val instanceof Date) return val.getTime()
+  if (typeof val === 'string') {
+    const t = Date.parse(val)
+    return Number.isFinite(t) ? t : 0
+  }
+  if (typeof val === 'object' && val.$date) {
+    const t = Date.parse(val.$date)
+    return Number.isFinite(t) ? t : 0
+  }
+  return 0
+}
+
+function readJobsCache() {
+  try {
+    const v = wx.getStorageSync && wx.getStorageSync(JOBS_CACHE_KEY)
+    const obj = typeof v === 'string' ? JSON.parse(v) : v
+    if (!obj || typeof obj !== 'object') return null
+    const ts = typeof obj.ts === 'number' ? obj.ts : 0
+    if (!ts || Date.now() - ts > JOBS_CACHE_TTL_MS) return null
+    const jobs = Array.isArray(obj.jobs) ? obj.jobs : []
+    return { ts, jobs }
+  } catch (e) {
+    return null
+  }
+}
+
+function writeJobsCache(payload) {
+  try {
+    wx.setStorageSync && wx.setStorageSync(JOBS_CACHE_KEY, payload)
+  } catch (e) {
+    // ignore
+  }
+}
+
+function statusText(status) {
+  if (status === 'done') return 'Done'
+  if (status === 'failed') return 'Failed'
+  if (status === 'running') return 'Running'
+  return 'Queued'
+}
+
+function normalizeJobForUi(job) {
+  const createdAt = toMs(job && job.createdAt)
+  const updatedAt = toMs(job && job.updatedAt)
+  const now = Date.now()
+  return {
+    ...job,
+    createdAtMs: createdAt,
+    updatedAtMs: updatedAt,
+    createdText: createdAt ? formatRelativeTime(createdAt, now) : '',
+    updatedText: updatedAt ? formatRelativeTime(updatedAt, now) : '',
+    statusLabel: statusText(job && job.status)
+  }
+}
 
 function getAppUiState() {
   try {
@@ -49,10 +110,19 @@ Page({
     step3Phase: 'idle', // idle | ocr | generate | write | done
     step3Title: '',
     step3Subtitle: '',
+    uploadDone: 0,
+    uploadTotal: 0,
     ocrDone: 0,
     ocrTotal: 0,
     writeDone: 0,
-    writeTotal: 0
+    writeTotal: 0,
+
+    currentJobId: '',
+    currentJob: null,
+
+    isLoadingJobs: false,
+    jobs: [],
+    hasJobsCache: false
   },
 
   onLoad() {
@@ -74,7 +144,8 @@ Page({
     if (tabBar && tabBar.setData) tabBar.setData({ selected: 1, theme: ui.theme })
 
     this.hydrateInitialMode()
-    this.resumePendingSaves()
+    this.hydrateJobsCache()
+    this.loadJobs({ silent: this.data.hasJobsCache })
   },
 
   onUnload() {
@@ -82,6 +153,7 @@ Page({
       clearTimeout(this._timer)
       this._timer = null
     }
+    this.stopJobPolling()
   },
 
   hydrateInitialMode() {
@@ -133,41 +205,105 @@ Page({
     }
   },
 
-  async resumePendingSaves() {
-    if (this._isResumingSaves) return
-    if (this._isGenerating) return
-    this._isResumingSaves = true
-    this._isGenerating = true
-    try {
-      const ret = await resumePendingCreateJob({
-        onProgress: ({ done, total }) => {
-          this.setData({
-            step: 'generate',
-            currentStepIndex: stepToIndex('generate'),
-            step3Phase: 'write',
-            step3Title: 'Saving cards...',
-            step3Subtitle: 'Resuming previous save',
-            writeDone: done,
-            writeTotal: total
-          })
-        }
-      })
-
-      if (!ret || ret.ok !== true) return
-
-      // If it completed successfully, show complete step
-      this.setData({
-        step: 'complete',
-        currentStepIndex: stepToIndex('complete'),
-        step3Phase: 'done'
-      })
-    } catch (e) {
-      // keep pending job for next time
-      console.error('resumePendingSaves failed', e)
-    } finally {
-      this._isGenerating = false
-      this._isResumingSaves = false
+  hydrateJobsCache() {
+    const cached = readJobsCache()
+    if (!cached) {
+      this.setData({ hasJobsCache: false })
+      return false
     }
+    const jobs = (Array.isArray(cached.jobs) ? cached.jobs : []).map((j) => normalizeJobForUi(j))
+    this.setData({ jobs, hasJobsCache: true, isLoadingJobs: false })
+    return true
+  },
+
+  async loadJobs({ silent = false } = {}) {
+    if (!wx.cloud || !wx.cloud.database) return
+    try {
+      const hasAny = Array.isArray(this.data.jobs) && this.data.jobs.length > 0
+      if (!silent && !hasAny) this.setData({ isLoadingJobs: true })
+      const list = await listMyJobs({ limit: 20 })
+      const jobs = list.map((j) => normalizeJobForUi(j))
+      this.setData({ jobs, isLoadingJobs: false, hasJobsCache: true })
+      writeJobsCache({ v: 1, ts: Date.now(), jobs: list })
+    } catch (e) {
+      console.error('loadJobs failed', e)
+      this.setData({ isLoadingJobs: false })
+    }
+  },
+
+  stopJobPolling() {
+    if (this._jobPollTimer) {
+      clearTimeout(this._jobPollTimer)
+      this._jobPollTimer = null
+    }
+    this._pollingJobId = ''
+  },
+
+  startJobPolling(jobId) {
+    const id = String(jobId || '')
+    if (!id) return
+    this.stopJobPolling()
+    this._pollingJobId = id
+
+    const tick = async () => {
+      if (this._pollingJobId !== id) return
+      try {
+        const job = await getJob(id)
+        const uiJob = normalizeJobForUi(job)
+        this.setData({ currentJobId: id, currentJob: uiJob })
+
+        // Sync progress UI to job status
+        const status = uiJob.status
+        const phase = uiJob.phase
+        const nextPhase = status === 'queued'
+          ? 'queued'
+          : (status === 'failed' ? 'failed' : (phase || 'generate'))
+
+        this.setData({
+          step: 'generate',
+          currentStepIndex: stepToIndex('generate'),
+          step3Phase: nextPhase,
+          step3Title: status === 'done'
+            ? 'Completed'
+            : (status === 'failed'
+              ? 'Failed'
+              : (status === 'queued' ? 'Queued in cloud' : 'Running in cloud')),
+          step3Subtitle: status === 'done'
+            ? `Saved ${uiJob.resultCount || uiJob.writeTotal || 0} cards`
+            : (status === 'failed'
+              ? (uiJob.error || 'Job failed')
+              : 'You can leave the app. This runs in the cloud.'),
+          ocrDone: uiJob.ocrDone || 0,
+          ocrTotal: uiJob.ocrTotal || 0,
+          writeDone: uiJob.writeDone || 0,
+          writeTotal: uiJob.writeTotal || 0
+        })
+
+        if (status === 'done') {
+          this.stopJobPolling()
+          await this.loadJobs({ silent: true })
+          this.setData({
+            step: 'complete',
+            currentStepIndex: stepToIndex('complete'),
+            step3Phase: 'done'
+          })
+          return
+        }
+        if (status === 'failed') {
+          this.stopJobPolling()
+          await this.loadJobs({ silent: true })
+          return
+        }
+      } catch (e) {
+        console.error('poll job failed', e)
+      } finally {
+        if (this._pollingJobId === id) {
+          this._jobPollTimer = setTimeout(tick, 2000)
+        }
+      }
+    }
+
+    tick()
   },
 
   onSelectMode(e) {
@@ -246,30 +382,18 @@ Page({
     this.setData({ pickedImages: [] })
   },
 
-  async runOcrOnImages(paths) {
+  async uploadImages(paths) {
     const list = Array.isArray(paths) ? paths.filter(Boolean) : []
     if (!list.length) throw new Error('no images')
-
-    const texts = []
+    const fileIDs = []
     for (let i = 0; i < list.length; i += 1) {
       const path = list[i]
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const fileID = await uploadImage(path)
-        // eslint-disable-next-line no-await-in-loop
-        const ret = await analyzeImage(fileID)
-        const text = ret && typeof ret.text === 'string' ? ret.text.trim() : ''
-        if (text) texts.push(text)
-      } catch (e) {
-        console.error('ocr single image failed', e)
-      } finally {
-        this.setData({ ocrDone: i + 1 })
-      }
+      // eslint-disable-next-line no-await-in-loop
+      const fileID = await uploadImage(path)
+      fileIDs.push(fileID)
+      this.setData({ uploadDone: i + 1 })
     }
-
-    const sourceText = texts.join('\n\n')
-    if (!sourceText.trim()) throw new Error('empty ocr text')
-    return sourceText
+    return fileIDs
   },
 
   async onGenerate() {
@@ -277,88 +401,62 @@ Page({
     if (!title) return
     if (this._isGenerating) return
 
-    let sourceText = ''
-    let pendingJobSet = false
-    if (this.data.selectedMode === 'text') {
-      sourceText = String(this.data.inputText || '').trim()
-      if (!sourceText) {
-        wx.showToast({ title: '请先粘贴/输入内容', icon: 'none' })
-        return
-      }
-    } else {
-      const images = Array.isArray(this.data.pickedImages) ? this.data.pickedImages : []
-      if (!images.length) {
-        wx.showToast({ title: '请先选择图片', icon: 'none' })
-        return
-      }
+    const mode = this.data.selectedMode === 'text' ? 'text' : 'images'
+    const knowledge = String(this.data.knowledge || '').trim()
+    const rawText = mode === 'text' ? String(this.data.inputText || '').trim() : ''
+    const images = mode === 'images' ? (Array.isArray(this.data.pickedImages) ? this.data.pickedImages : []) : []
+    if (mode === 'text' && !rawText) {
+      wx.showToast({ title: '请先粘贴/输入内容', icon: 'none' })
+      return
+    }
+    if (mode === 'images' && !images.length) {
+      wx.showToast({ title: '请先选择图片', icon: 'none' })
+      return
     }
 
     this._isGenerating = true
     try {
-      const ocrTotal = this.data.selectedMode === 'text'
-        ? 0
-        : (Array.isArray(this.data.pickedImages) ? this.data.pickedImages.length : 0)
+      const uploadTotal = mode === 'images' ? images.length : 0
+      const ocrTotal = mode === 'images' ? images.length : 0
 
-          this.setData({
+      this.setData({
         step: 'generate',
         currentStepIndex: stepToIndex('generate'),
-        step3Phase: this.data.selectedMode === 'text' ? 'generate' : 'ocr',
-        step3Title: this.data.selectedMode === 'text' ? 'Generating cards...' : 'Extracting text...',
-        step3Subtitle: this.data.selectedMode === 'text'
-          ? 'AI is analyzing your content and creating knowledge cards'
-          : 'Uploading images and running OCR',
+        step3Phase: mode === 'text' ? 'queued' : 'upload',
+        step3Title: mode === 'text' ? 'Submitting job...' : 'Uploading images...',
+        step3Subtitle: 'This runs in the cloud. Feel free to leave and come back later.',
+        uploadDone: 0,
+        uploadTotal,
         ocrDone: 0,
         ocrTotal,
         writeDone: 0,
         writeTotal: 0
       })
 
-      if (this.data.selectedMode !== 'text') {
-        sourceText = await this.runOcrOnImages(this.data.pickedImages)
-      }
+      const imageFileIDs = mode === 'images' ? await this.uploadImages(images) : []
 
       this.setData({
-        step3Phase: 'generate',
-        step3Title: 'Generating cards...',
-        step3Subtitle: 'AI is creating knowledge cards from your content'
+        step3Phase: 'queued',
+        step3Title: 'Queued in cloud',
+        step3Subtitle: 'Job created. Cloud worker will process it.'
       })
 
-      const knowledge = String(this.data.knowledge || '').trim()
-      const cards = await generateCardsByDeepSeek({ rawText: sourceText, knowledge, learningStyle: '无' })
-      const total = Array.isArray(cards) ? cards.length : 0
-
-      this.setData({
-        step3Phase: 'write',
-        step3Title: 'Saving cards...',
-        step3Subtitle: 'Writing generated cards to database',
-        writeDone: 0,
-        writeTotal: total
+      const jobId = await createJob({
+        deckTitle: title,
+        mode: mode === 'text' ? 'text' : 'images',
+        rawText,
+        imageFileIDs,
+        knowledge
       })
+      this.setData({ currentJobId: jobId })
 
-      const toSave = (Array.isArray(cards) ? cards : []).map((c) => {
-        const hint = c && typeof c.hint === 'string' ? c.hint.trim() : ''
-        const answer = hint ? `${c.answer}\n\nHint: ${hint}` : c.answer
-        return { question: c.question, answer, tags: c.tags }
-      })
-
-      // Persist before writing so it can be resumed after app background/exit.
-      setPendingCreateJob({ deckTitle: title, cards: toSave })
-      pendingJobSet = true
-      await resumePendingCreateJob({
-        onProgress: ({ done }) => {
-          this.setData({ writeDone: done })
-        }
-      })
-
-      wx.showToast({ title: `已生成并保存 ${total} 张卡片`, icon: 'success' })
-      this.setData({
-        step3Phase: 'done',
-        step: 'complete',
-        currentStepIndex: stepToIndex('complete')
-      })
+      // Try to start immediately for faster feedback; timer trigger will also process queued jobs.
+      startJob(jobId).catch(() => {})
+      this.loadJobs({ silent: true }).catch(() => {})
+      this.startJobPolling(jobId)
     } catch (e) {
       console.error('generate/write cards failed', e)
-      wx.showToast({ title: pendingJobSet ? '保存中断，下次打开会自动继续' : '生成失败，请重试', icon: 'none' })
+      wx.showToast({ title: '提交失败，请重试', icon: 'none' })
       this.setData({
         step3Phase: 'idle',
         step3Title: '',
@@ -367,6 +465,7 @@ Page({
         currentStepIndex: stepToIndex('input')
       })
     } finally {
+      // Keep disabled while on generate screen; user can always leave and come back.
       this._isGenerating = false
     }
   },
@@ -375,13 +474,16 @@ Page({
     wx.switchTab({ url: '/pages/home/index' })
   },
 
-  onToggleTheme() {
-    const app = getApp()
-    const next = app && typeof app.toggleTheme === 'function'
-      ? app.toggleTheme()
-      : (this.data.theme === 'dark' ? 'light' : 'dark')
-    this.setData({ theme: next })
-    const tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null
-    if (tabBar && tabBar.setData) tabBar.setData({ theme: next })
+  onJobTap(e) {
+    const id = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.id : ''
+    const deckTitle = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.deckTitle : ''
+    const status = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.status : ''
+    if (!id) return
+    if (status === 'done' && deckTitle) {
+      wx.navigateTo({ url: `/pages/library/detail?deckTitle=${encodeURIComponent(deckTitle)}` })
+      return
+    }
+    this.setData({ currentJobId: id })
+    this.startJobPolling(id)
   }
 })

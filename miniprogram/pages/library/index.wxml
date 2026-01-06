@@ -125,6 +125,14 @@
         </view>
 
         <view class="lc-card generate-card">
+          <view wx:if="{{uploadTotal > 0}}" class="progress-row">
+            <view wx:if="{{uploadDone >= uploadTotal}}" class="check-dot">✓</view>
+            <view wx:elif="{{step3Phase === 'upload'}}" class="pulse-dot">
+              <view class="mini-spinner" />
+            </view>
+            <view wx:else class="idle-dot" />
+            <view class="progress-text">Uploading images {{uploadDone}}/{{uploadTotal}}</view>
+          </view>
           <view class="progress-row">
             <view wx:if="{{ocrTotal === 0}}" class="check-dot">✓</view>
             <view wx:elif="{{ocrDone >= ocrTotal}}" class="check-dot">✓</view>
@@ -171,6 +179,53 @@
           <t-icon name="home" size="36rpx" color="#fff" />
           <text style="margin-left: 12rpx;">Go Home</text>
         </button>
+      </view>
+
+      <!-- Job History (always visible) -->
+      <view class="create-section job-history">
+        <view class="create-section-title">Generation History</view>
+
+        <view wx:if="{{isLoadingJobs && !jobs.length}}" class="lc-card jobs-empty">
+          <view class="lc-inline-loading">
+            <view class="lc-mini-spinner" />
+            <text class="jobs-empty-text">Loading jobs...</text>
+          </view>
+        </view>
+
+        <view wx:elif="{{!jobs.length}}" class="lc-card jobs-empty">
+          <text class="jobs-empty-text">No jobs yet.</text>
+        </view>
+
+        <view wx:else class="job-list">
+          <view
+            wx:for="{{jobs}}"
+            wx:key="id"
+            class="lc-card job-item"
+            data-id="{{item.id}}"
+            data-deck-title="{{item.deckTitle}}"
+            data-status="{{item.status}}"
+            bind:tap="onJobTap"
+            hover-class="lc-hover-border"
+          >
+            <view class="job-row">
+              <view class="job-title">{{item.deckTitle}}</view>
+              <view class="job-badge job-badge-{{item.status}}">{{item.statusLabel}}</view>
+            </view>
+            <view wx:if="{{item.createdText || item.updatedText}}" class="job-meta">
+              <text wx:if="{{item.createdText}}">{{item.createdText}}</text>
+              <text wx:elif="{{item.updatedText}}">{{item.updatedText}}</text>
+            </view>
+            <view wx:if="{{item.status !== 'done'}}" class="job-progress">
+              <text class="job-progress-text">
+                <block wx:if="{{item.status === 'failed'}}">{{item.error}}</block>
+                <block wx:elif="{{item.phase === 'ocr'}}">OCR {{item.ocrDone}}/{{item.ocrTotal}}</block>
+                <block wx:elif="{{item.phase === 'write'}}">Saving {{item.writeDone}}/{{item.writeTotal}}</block>
+                <block wx:elif="{{item.phase === 'generate'}}">Generating...</block>
+                <block wx:else>Queued</block>
+              </text>
+            </view>
+          </view>
+        </view>
       </view>
     </view>
   </view>

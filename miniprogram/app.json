@@ -1,4 +1,5 @@
 {
+  "darkmode": true,
   "pages": [
     "pages/home/index",    
     "pages/library/index",

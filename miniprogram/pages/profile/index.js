@@ -48,10 +48,6 @@ Page({
     username: '',
     isEditingUsername: false,
     tempUsername: '',
-
-    // theme
-    themeMode: 'system', // system | light | dark
-    isEditingTheme: false
   },
 
   onLoad() {
@@ -59,7 +55,6 @@ Page({
     this.setData({ theme: ui.theme, statusBarRpx: ui.statusBarRpx, safeBottomRpx: ui.safeBottomRpx })
 
     this.hydrateNotifications()
-    this.hydrateThemeMode()
     this.refreshAll(true)
   },
 
@@ -79,35 +74,19 @@ Page({
     this.refreshAll(false)
   },
 
-  hydrateThemeMode() {
+  onDarkModeChange(e) {
+    const value = e && e.detail ? e.detail.value : false
+    const next = value ? 'dark' : 'light'
     try {
       const app = getApp()
-      const mode = app && typeof app.getThemeMode === 'function' ? app.getThemeMode() : 'system'
-      this.setData({ themeMode: mode === 'dark' || mode === 'light' ? mode : 'system' })
-    } catch (e) {
-      this.setData({ themeMode: 'system' })
-    }
-  },
-
-  onOpenTheme() {
-    this.setData({ isEditingTheme: true })
-  },
-
-  onCloseTheme() {
-    this.setData({ isEditingTheme: false })
-  },
-
-  onPickThemeMode(e) {
-    const mode = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.mode : ''
-    if (mode !== 'system' && mode !== 'light' && mode !== 'dark') return
-    const app = getApp()
-    try {
-      if (app && typeof app.setThemeMode === 'function') app.setThemeMode(mode)
+      if (app && typeof app.setTheme === 'function') {
+        app.setTheme(next)
+      }
     } catch (err) {
       // ignore
     }
     const ui = getAppUiState()
-    this.setData({ theme: ui.theme, themeMode: mode, isEditingTheme: false })
+    this.setData({ theme: ui.theme })
   },
 
   isProfileAuthorized() {

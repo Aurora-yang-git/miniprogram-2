@@ -76,15 +76,10 @@
       <view class="group">
         <view class="group-title">Appearance</view>
         <view class="group-card">
-          <view class="row" bind:tap="onOpenTheme" hover-class="lc-hover-bg">
+          <view class="row" hover-class="lc-hover-bg">
             <t-icon name="star" size="36rpx" color="var(--lc-text-muted)" />
-            <text class="row-label">Theme</text>
-            <text class="row-value">
-              <block wx:if="{{themeMode === 'system'}}">System</block>
-              <block wx:elif="{{themeMode === 'dark'}}">Dark</block>
-              <block wx:else>Light</block>
-            </text>
-            <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
+            <text class="row-label">Dark Mode</text>
+            <t-switch value="{{theme === 'dark'}}" bind:change="onDarkModeChange" />
           </view>
         </view>
       </view>
@@ -147,32 +142,5 @@
     </view>
   </view>
 
-  <!-- Theme Modal -->
-  <view wx:if="{{isEditingTheme}}" class="lc-modal-overlay" catch:tap="onCloseTheme">
-    <view class="lc-modal" catch:tap="noop">
-      <view class="lc-modal-header">
-        <text class="lc-modal-title">Theme</text>
-      </view>
-      <view class="lc-modal-body">
-        <view class="lc-p" style="margin-bottom: 16rpx;">Choose appearance:</view>
-        <view class="preset-grid" style="grid-template-columns: repeat(3, 1fr);">
-          <view class="preset-item {{themeMode === 'system' ? 'is-active' : ''}}" data-mode="system" catch:tap="onPickThemeMode">
-            <view class="preset-num">System</view>
-            <view class="preset-sub">Follow WeChat</view>
-          </view>
-          <view class="preset-item {{themeMode === 'light' ? 'is-active' : ''}}" data-mode="light" catch:tap="onPickThemeMode">
-            <view class="preset-num">Light</view>
-            <view class="preset-sub">Always light</view>
-          </view>
-          <view class="preset-item {{themeMode === 'dark' ? 'is-active' : ''}}" data-mode="dark" catch:tap="onPickThemeMode">
-            <view class="preset-num">Dark</view>
-            <view class="preset-sub">Always dark</view>
-          </view>
-        </view>
-      </view>
-      <view class="lc-modal-footer">
-        <button class="lc-btn lc-btn-outline" bind:tap="onCloseTheme" hover-class="lc-hover-bg">Close</button>
-      </view>
-    </view>
-  </view>
+  <!-- Theme Modal removed: Settings only supports Light/Dark toggle -->
 </view>

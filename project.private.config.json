@@ -17,7 +17,7 @@
     "ignoreDevUnusedFiles": true,
     "bigPackageSizeSupport": false
   },
-  "libVersion": "3.13.0",
-  "projectname": "%E5%AD%A6%E4%B9%A0%E5%8D%A1%E5%AD%90",
+  "libVersion": "3.13.1",
+  "projectname": "xuexikazi",
   "condition": {}
 }

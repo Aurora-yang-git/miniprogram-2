@@ -1,0 +1,13 @@
+{
+  "permissions": {},
+  "triggers": [
+    {
+      "name": "createJobsWorker",
+      "type": "timer",
+      "config": "0 */1 * * * *"
+    }
+  ]
+}
+
+
+

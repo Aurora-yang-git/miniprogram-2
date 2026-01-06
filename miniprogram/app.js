@@ -11,6 +11,63 @@ App({
     safeBottomRpx: 0
   },
 
+  applyNativeTabBarStyle(theme) {
+    try {
+      if (!wx.setTabBarStyle) return
+      const t = theme === 'dark' ? 'dark' : 'light'
+      const style = t === 'dark'
+        ? { backgroundColor: '#171717', borderStyle: 'black', color: '#a3a3a3', selectedColor: '#2563eb' }
+        : { backgroundColor: '#ffffff', borderStyle: 'white', color: '#737373', selectedColor: '#2563eb' }
+      wx.setTabBarStyle(style)
+    } catch (e) {
+      // May fail early during launch; retry once shortly after.
+      try {
+        if (this._tabbarStyleTimer) clearTimeout(this._tabbarStyleTimer)
+      } catch (err) {
+        // ignore
+      }
+      try {
+        const t = theme === 'dark' ? 'dark' : 'light'
+        const style = t === 'dark'
+          ? { backgroundColor: '#171717', borderStyle: 'black', color: '#a3a3a3', selectedColor: '#2563eb' }
+          : { backgroundColor: '#ffffff', borderStyle: 'white', color: '#737373', selectedColor: '#2563eb' }
+        this._tabbarStyleTimer = setTimeout(() => {
+          try {
+            if (wx.setTabBarStyle) wx.setTabBarStyle(style)
+          } catch (e2) {
+            // ignore
+          }
+        }, 200)
+      } catch (err2) {
+        // ignore
+      }
+    }
+  },
+
+  applyTheme(nextTheme) {
+    const t = nextTheme === 'dark' ? 'dark' : 'light'
+    this.globalData.theme = t
+
+    // Broadcast to current pages so UI updates immediately.
+    try {
+      const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+      if (Array.isArray(pages)) {
+        pages.forEach((p) => {
+          try {
+            if (p && typeof p.setData === 'function') p.setData({ theme: t })
+          } catch (e) {
+            // ignore per page
+          }
+        })
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // Native tabBar style should follow current theme.
+    this.applyNativeTabBarStyle(t)
+  },
+
   getThemeMode() {
     const m = this.globalData && typeof this.globalData.themeMode === 'string' ? this.globalData.themeMode : 'system'
     return m === 'light' || m === 'dark' || m === 'system' ? m : 'system'
@@ -34,12 +91,12 @@ App({
   setTheme(theme) {
     const next = theme === 'dark' ? 'dark' : 'light'
     this.globalData.themeMode = next
-    this.globalData.theme = next
     try {
       wx.setStorageSync && wx.setStorageSync(THEME_MODE_KEY, next)
     } catch (e) {
       // ignore
     }
+    this.applyTheme(next)
     return next
   },
 
@@ -47,13 +104,14 @@ App({
   setThemeMode(mode) {
     const m = mode === 'light' || mode === 'dark' ? mode : (mode === 'system' ? 'system' : 'system')
     this.globalData.themeMode = m
-    this.globalData.theme = m === 'system' ? this.computeSystemTheme() : m
+    const nextTheme = m === 'system' ? this.computeSystemTheme() : m
     try {
       wx.setStorageSync && wx.setStorageSync(THEME_MODE_KEY, m)
     } catch (e) {
       // ignore
     }
-    return this.globalData.theme
+    this.applyTheme(nextTheme)
+    return nextTheme
   },
 
   toggleTheme() {
@@ -95,6 +153,17 @@ App({
     }
   },
 
+  onShow() {
+    // When user hasn't overridden theme, always follow current system theme.
+    try {
+      const mode = this.getThemeMode()
+      const next = mode === 'system' ? this.computeSystemTheme() : this.getTheme()
+      this.applyTheme(next)
+    } catch (e) {
+      // ignore
+    }
+  },
+
   onLaunch: function () {
     this.ensureSystemMetrics()
 
@@ -115,14 +184,15 @@ App({
       }
     }
     this.globalData.themeMode = themeMode
-    this.globalData.theme = themeMode === 'system' ? this.computeSystemTheme() : themeMode
+    const initialTheme = themeMode === 'system' ? this.computeSystemTheme() : themeMode
+    this.applyTheme(initialTheme)
 
     // Listen to system theme changes when in system mode.
     try {
       if (typeof wx.onThemeChange === 'function') {
         wx.onThemeChange(({ theme }) => {
           if (this.getThemeMode() !== 'system') return
-          this.globalData.theme = theme === 'dark' ? 'dark' : 'light'
+          this.applyTheme(theme === 'dark' ? 'dark' : 'light')
         })
       }
     } catch (e) {

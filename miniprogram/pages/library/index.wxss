@@ -205,6 +205,96 @@
   padding: 32rpx;
 }
 
+.job-history {
+  margin-top: 64rpx;
+}
+
+.jobs-empty {
+  padding: 48rpx;
+  text-align: center;
+}
+
+.jobs-empty-text {
+  color: var(--lc-text-muted);
+  font-size: 24rpx;
+}
+
+.job-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.job-item {
+  padding: 28rpx;
+}
+
+.job-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.job-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--lc-text);
+}
+
+.job-badge {
+  padding: 6rpx 16rpx;
+  border-radius: var(--lc-radius-full);
+  font-size: 22rpx;
+  font-weight: 600;
+  border: 2rpx solid var(--lc-border);
+  color: var(--lc-text-muted);
+  background: var(--lc-surface-2);
+  flex-shrink: 0;
+}
+
+.job-badge-queued {
+  background: var(--lc-surface-2);
+  border-color: var(--lc-border);
+  color: var(--lc-text-muted);
+}
+
+.job-badge-running {
+  background: var(--lc-primary-50);
+  border-color: var(--lc-primary);
+  color: var(--lc-primary);
+}
+
+.job-badge-done {
+  background: var(--lc-success-50);
+  border-color: var(--lc-success);
+  color: var(--lc-success);
+}
+
+.job-badge-failed {
+  background: var(--lc-danger-50);
+  border-color: var(--lc-danger);
+  color: var(--lc-danger);
+}
+
+.job-meta {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: var(--lc-text-muted);
+}
+
+.job-progress {
+  margin-top: 12rpx;
+}
+
+.job-progress-text {
+  font-size: 22rpx;
+  color: var(--lc-text-subtle);
+  line-height: 1.5;
+}
+
 .progress-row {
   display: flex;
   align-items: center;

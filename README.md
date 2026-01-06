@@ -35,7 +35,20 @@
   - 开通云开发并创建云环境（如果你使用的是教育版资源，请在工具设置中开启“教育版”）
 
 - **打开项目**
-  - 在微信开发者工具中导入本仓库根目录（`project.config.json` 已配置 `miniprogramRoot: miniprogram/`）
+  - 在微信开发者工具中导入 `xuexikazi/` 目录（该目录包含 `project.config.json`，且已配置 `miniprogramRoot: miniprogram/`）
+
+- **安装小程序端 npm 依赖（推荐）**
+  - 在 `xuexikazi/` 目录执行：
+
+```bash
+npm install
+```
+
+  - 本项目小程序端 npm 依赖目前主要是：`tdesign-miniprogram`（用于 `app.json` 的 `usingComponents`）
+
+- **构建 npm（首次/依赖变更后必做）**
+  - 在微信开发者工具中执行：**工具 → 构建 npm**
+  - 产物输出到：`miniprogram/miniprogram_npm/`
 
 - **配置云环境 envId（必做）**
   - 打开 `miniprogram/app.js`，把 `wx.cloud.init({ env: '...' })` 中的值替换为你的云环境 `envId`
@@ -48,8 +61,18 @@
     - 云函数 `analyzeImage` 需要环境变量：`MOONSHOT_API_KEY`
     - 在云开发控制台/开发者工具中为该云函数配置环境变量后，重新部署一次 `analyzeImage`
 
-- **构建 npm（按需）**
-  - 如果你更新了前端依赖（如 `tdesign-miniprogram`），在开发者工具中执行：**工具 → 构建 npm**
+### 依赖说明与冗余依赖结论
+
+- **小程序端（`xuexikazi/package.json`）**
+  - 只用于 **小程序端 npm 依赖管理 + 开发者工具“构建 npm”**（生成 `miniprogram/miniprogram_npm/`）
+  - 当前仅需要 `tdesign-miniprogram`，**不需要**在根目录安装 `wx-server-sdk`
+
+- **云函数（`cloudfunctions/*/package.json`）**
+  - 每个云函数独立部署，依赖各自的 `package.json`（当前都依赖 `wx-server-sdk@^2.6.3`）
+  - 这类重复声明是云函数部署方式决定的，**不属于冗余**
+
+- **参考 UI**
+  - 仓库根目录下的 `reference image/ui` 为 UI 对齐/参考工程，**不影响小程序运行**；只有在你要启动该参考工程时才需要安装它的依赖
 
 ### 云函数说明
 
@@ -80,10 +103,13 @@
 
 ```
 miniprogram-2/
-├─ miniprogram/            # 小程序主包
-├─ cloudfunctions/         # 云函数（OCR/复习/排行榜等）
-├─ docs/architecture.md    # 架构与数据流说明（建议先读）
-└─ ui/                     # UI 对齐/参考（不影响小程序运行）
+├─ xuexikazi/                      # ✅ 小程序工程根目录（导入这个目录到开发者工具）
+│  ├─ miniprogram/                 # 小程序主包
+│  ├─ cloudfunctions/              # 云函数（OCR/复习/排行榜等）
+│  ├─ docs/architecture.md         # 架构与数据流说明（建议先读）
+│  ├─ package.json                 # 小程序端 npm 依赖（tdesign-miniprogram）
+│  └─ project.config.json
+└─ reference image/ui/             # UI 对齐/参考工程（非运行必需）
 ```
 
 ### 常见问题（FAQ）
@@ -96,6 +122,9 @@ miniprogram-2/
 
 - **生成卡片时报 “AI能力不可用”**
   - 需要云开发 AI 能力可用（`wx.cloud.extend.AI`）；无法使用时可先用“粘贴文本/手动创建”方式
+
+- **小程序报错找不到 `tdesign-miniprogram/...`**
+  - 先在 `xuexikazi/` 执行 `npm install`，再在开发者工具里执行 **工具 → 构建 npm**
 
 - **旧文档里提到的 `mobilenetv2_11.onnx` 还需要上传吗？**
   - 不需要。当前 OCR 走 `analyzeImage` 的 Moonshot(Kimi) 视觉接口；仓库内的 `miniprogram/utils/config.js` 等属于历史遗留，不影响现流程
