@@ -1,9 +1,30 @@
 import { listCardsByDeckTitle, listDueCards, normalizeDeckTitle } from '../../services/cards'
 import { recordReviewEvent } from '../../services/activity'
+import { callOkFunction } from '../../services/cloud'
 import { toRichTextHtml } from '../../utils/richText'
 
 const PENDING_KEY = 'review_pending_submits'
 const CLOCK_SKEW_MS = 5000
+const SWIPE_MIN_DISTANCE_PX = 50
+const SWIPE_SUPPRESS_TAP_MS = 260
+const ONBOARDING_KEY = 'review_onboarding_dismissed_v1'
+
+function readBoolStorage(key) {
+  try {
+    const v = wx.getStorageSync && wx.getStorageSync(key)
+    return v === true || v === 'true' || v === 1 || v === '1'
+  } catch (e) {
+    return false
+  }
+}
+
+function writeBoolStorage(key, value) {
+  try {
+    wx.setStorageSync && wx.setStorageSync(key, value ? true : false)
+  } catch (e) {
+    // ignore
+  }
+}
 
 function getAppUiState() {
   try {
@@ -77,6 +98,9 @@ Page({
     theme: 'light',
     statusBarRpx: 0,
     safeBottomRpx: 0,
+    locale: 'zh',
+    i18n: {},
+    showOnboarding: false,
 
     mode: 'review', // review | study
     scope: 'deck', // deck | all
@@ -112,6 +136,24 @@ Page({
     this._cardResults = []
     this._sessionXp = 0
 
+    // Gesture state (non-render)
+    this._touchStartX = 0
+    this._touchStartY = 0
+    this._touchLastX = 0
+    this._touchLastY = 0
+    this._suppressTapUntil = 0
+
+    // i18n + onboarding (first paint)
+    try {
+      const app = getApp()
+      const i18n = app && typeof app.getI18n === 'function' ? app.getI18n('review') : {}
+      const locale = i18n && typeof i18n._locale === 'string' ? i18n._locale : 'zh'
+      const dismissed = readBoolStorage(ONBOARDING_KEY)
+      this.setData({ i18n, locale, showOnboarding: !dismissed })
+    } catch (e) {
+      // ignore
+    }
+
     const ui = getAppUiState()
     this.setData({ theme: ui.theme, statusBarRpx: ui.statusBarRpx, safeBottomRpx: ui.safeBottomRpx })
 
@@ -146,8 +188,25 @@ Page({
   onShow() {
     const ui = getAppUiState()
     this.setData({ theme: ui.theme, statusBarRpx: ui.statusBarRpx, safeBottomRpx: ui.safeBottomRpx })
+
+    // Refresh locale on show (in case user changed system language)
+    try {
+      const app = getApp()
+      if (app && typeof app.refreshLocale === 'function') app.refreshLocale()
+      const i18n = app && typeof app.getI18n === 'function' ? app.getI18n('review') : {}
+      const locale = i18n && typeof i18n._locale === 'string' ? i18n._locale : this.data.locale
+      this.setData({ i18n, locale })
+    } catch (e) {
+      // ignore
+    }
+
     this.restorePendingSubmits()
     this.fetchReviewQueue()
+  },
+
+  onDismissOnboarding() {
+    writeBoolStorage(ONBOARDING_KEY, true)
+    this.setData({ showOnboarding: false })
   },
 
   normalizeCardForReview(card) {
@@ -197,6 +256,7 @@ Page({
       this._relearnRound = 0
       this._cardResults = []
       this._sessionXp = 0
+      this._fillQueueSeq = (this._fillQueueSeq || 0) + 1
       this.setData({
         isLoadingQueue: false,
         currentIndex: 0,
@@ -213,7 +273,8 @@ Page({
 
     if (!wx.cloud || !wx.cloud.database) {
       fallback()
-      wx.showToast({ title: '云能力不可用', icon: 'none' })
+      const t = this.data && this.data.i18n ? this.data.i18n : {}
+      wx.showToast({ title: t.cloudUnavailable || '云能力不可用', icon: 'none' })
       return
     }
 
@@ -227,25 +288,37 @@ Page({
       showHint: false
     })
     try {
-      let rawList = []
       const mode = this.data.mode
       const scope = this.data.scope
-      if (mode === 'study') {
-        if (!this.data.deckTitleFilter) throw new Error('missing deckTitle for study')
-        rawList = await listCardsByDeckTitle(this.data.deckTitleFilter)
-      } else if (scope === 'all') {
-        rawList = await listDueCards()
-      } else {
-        rawList = await listDueCards({
-          deckTitle: this.data.deckTitleFilter || undefined
-        })
-      }
-      const queue = (Array.isArray(rawList) ? rawList : []).map((card) => this.normalizeCardForReview(card))
+      const deckTitle = this.data.deckTitleFilter || ''
+
+      // Fast path: load a small first batch via cloudfunction (server-side DB has larger page size than client).
+      const firstLimit = 20
+      const first = await callOkFunction('getReviewQueue', {
+        mode,
+        scope,
+        deckTitle,
+        limit: firstLimit,
+        skip: 0
+      })
+      const firstCards = Array.isArray(first && first.cards) ? first.cards : []
+      const queue = firstCards.map((card) => this.normalizeCardForReview(card))
       this._queue = queue
       this._relearnQueue = []
       this._relearnRound = 0
       this._cardResults = []
       this._sessionXp = 0
+
+      // Start background fill (append remaining queue without blocking first render).
+      const fillSeq = (this._fillQueueSeq = (this._fillQueueSeq || 0) + 1)
+      this.fillQueueInBackground({
+        fillSeq,
+        mode,
+        scope,
+        deckTitle,
+        startSkip: first && typeof first.nextSkip === 'number' ? first.nextSkip : queue.length
+      }).catch(() => {})
+
       this.setData({
         isLoadingQueue: false,
         round: 'main',
@@ -262,7 +335,49 @@ Page({
     } catch (err) {
       console.error('fetch review queue failed', err)
       fallback()
-      wx.showToast({ title: '加载复习任务失败', icon: 'none' })
+      const t = this.data && this.data.i18n ? this.data.i18n : {}
+      wx.showToast({ title: t.loadQueueFailed || '加载复习任务失败', icon: 'none' })
+    }
+  },
+
+  async fillQueueInBackground({ fillSeq, mode, scope, deckTitle, startSkip }) {
+    const seq = typeof fillSeq === 'number' ? fillSeq : 0
+    let skip = typeof startSkip === 'number' && startSkip >= 0 ? startSkip : 0
+    const pageLimit = 50
+    const maxTotal = 1000
+
+    const seen = new Set((Array.isArray(this._queue) ? this._queue : []).map((c) => String(c && c.id ? c.id : '')))
+
+    while (seq && this._fillQueueSeq === seq) {
+      // eslint-disable-next-line no-await-in-loop
+      const ret = await callOkFunction('getReviewQueue', { mode, scope, deckTitle, limit: pageLimit, skip })
+      const cards = Array.isArray(ret && ret.cards) ? ret.cards : []
+      if (!cards.length) break
+
+      const normalized = cards.map((c) => this.normalizeCardForReview(c))
+      const append = []
+      normalized.forEach((c) => {
+        const id = c && c.id ? String(c.id) : ''
+        if (!id) return
+        if (seen.has(id)) return
+        seen.add(id)
+        append.push(c)
+      })
+
+      if (append.length) {
+        this._queue = (Array.isArray(this._queue) ? this._queue : []).concat(append)
+        if (this.data && this.data.round === 'main') {
+          this.setData({ totalCards: this._queue.length })
+        }
+      }
+
+      skip = ret && typeof ret.nextSkip === 'number' ? ret.nextSkip : skip + cards.length
+      const hasMore = Boolean(ret && ret.hasMore)
+      if (!hasMore) break
+      if (this._queue.length >= maxTotal) break
+
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, 50))
     }
   },
 
@@ -286,7 +401,86 @@ Page({
 
   onFlipCard() {
     if (!this.data.currentCard) return
+    if (this._suppressTapUntil && Date.now() < this._suppressTapUntil) return
     this.setData({ isFlipped: !this.data.isFlipped, showHint: false })
+  },
+
+  onCardTouchStart(e) {
+    try {
+      const t = e && e.touches && e.touches[0] ? e.touches[0] : null
+      if (!t) return
+      this._touchStartX = typeof t.clientX === 'number' ? t.clientX : 0
+      this._touchStartY = typeof t.clientY === 'number' ? t.clientY : 0
+      this._touchLastX = this._touchStartX
+      this._touchLastY = this._touchStartY
+    } catch (err) {
+      // ignore
+    }
+  },
+
+  onCardTouchMove(e) {
+    try {
+      const t = e && e.touches && e.touches[0] ? e.touches[0] : null
+      if (!t) return
+      this._touchLastX = typeof t.clientX === 'number' ? t.clientX : this._touchLastX
+      this._touchLastY = typeof t.clientY === 'number' ? t.clientY : this._touchLastY
+    } catch (err) {
+      // ignore
+    }
+  },
+
+  onCardTouchEnd() {
+    const startX = typeof this._touchStartX === 'number' ? this._touchStartX : 0
+    const startY = typeof this._touchStartY === 'number' ? this._touchStartY : 0
+    const endX = typeof this._touchLastX === 'number' ? this._touchLastX : 0
+    const endY = typeof this._touchLastY === 'number' ? this._touchLastY : 0
+
+    const dx = startX - endX
+    const dy = startY - endY
+    const absX = Math.abs(dx)
+    const absY = Math.abs(dy)
+
+    // Only treat as swipe when horizontal intent is clear (avoid fighting vertical scroll).
+    if (!(absX > absY && absX > SWIPE_MIN_DISTANCE_PX)) return
+
+    // Suppress the tap that often fires after a swipe.
+    this._suppressTapUntil = Date.now() + SWIPE_SUPPRESS_TAP_MS
+
+    if (dx > 0) {
+      this.goNextBySwipe()
+      return
+    }
+    this.goPrevBySwipe()
+  },
+
+  goNextBySwipe() {
+    const queue = Array.isArray(this._queue) ? this._queue : []
+    const len = queue.length
+    if (!len) return
+    const idx = typeof this.data.currentIndex === 'number' ? this.data.currentIndex : 0
+    if (idx >= len - 1) return
+    const next = idx + 1
+    this.setData({
+      currentIndex: next,
+      currentCard: queue[next] || null,
+      isFlipped: false,
+      showHint: false
+    })
+  },
+
+  goPrevBySwipe() {
+    const queue = Array.isArray(this._queue) ? this._queue : []
+    const len = queue.length
+    if (!len) return
+    const idx = typeof this.data.currentIndex === 'number' ? this.data.currentIndex : 0
+    if (idx <= 0) return
+    const prev = idx - 1
+    this.setData({
+      currentIndex: prev,
+      currentCard: queue[prev] || null,
+      isFlipped: false,
+      showHint: false
+    })
   },
 
   onToggleHint() {
@@ -422,7 +616,8 @@ Page({
       const now = Date.now()
       if (!this._lastFailToastAt || now - this._lastFailToastAt > 5000) {
         this._lastFailToastAt = now
-        wx.showToast({ title: '提交失败，将自动重试', icon: 'none' })
+        const t = this.data && this.data.i18n ? this.data.i18n : {}
+        wx.showToast({ title: t.submitRetry || '提交失败，将自动重试', icon: 'none' })
       }
     }
   },
@@ -485,7 +680,11 @@ Page({
           isFlipped: false,
           showHint: false
         })
-        wx.showToast({ title: nextRound === 1 ? '错题再练' : `再练第${nextRound}轮`, icon: 'none' })
+        const t = this.data && this.data.i18n ? this.data.i18n : {}
+        const msg = nextRound === 1
+          ? (t.relearn1 || '错题再练')
+          : String(t.relearnN || `再练第{n}轮`).replace('{n}', String(nextRound))
+        wx.showToast({ title: msg, icon: 'none' })
         return
       }
 

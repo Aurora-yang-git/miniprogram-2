@@ -13,23 +13,23 @@
       <!-- Summary -->
       <view wx:if="{{showSummary}}" class="summary">
         <view class="summary-header">
-          <view class="summary-title">Study Session Complete</view>
+          <view class="summary-title">{{i18n.summaryTitle}}</view>
           <view class="summary-sub">{{deckTitle}}</view>
       </view>
 
         <view class="summary-stats">
           <view class="stat-box good">
             <view class="stat-num">{{understoodCount}}</view>
-            <view class="stat-name">Understood</view>
+            <view class="stat-name">{{i18n.understood}}</view>
           </view>
           <view class="stat-box bad">
             <view class="stat-num">{{notUnderstoodCount}}</view>
-            <view class="stat-name">Need Review</view>
+            <view class="stat-name">{{i18n.needReview}}</view>
           </view>
                  </view>
                  
         <view wx:if="{{notUnderstoodCards.length}}" class="lc-card review-list">
-          <view class="review-title">Cards to Review ({{notUnderstoodCount}})</view>
+          <view class="review-title">{{i18n.cardsToReview}} ({{notUnderstoodCount}})</view>
           <view class="review-items">
             <block wx:for="{{notUnderstoodCards}}" wx:key="cardId">
               <view class="review-item">
@@ -41,17 +41,17 @@
                  </view>
                  
         <view wx:else class="done-card">
-          Perfect! You understood all cards!
+          {{i18n.perfect}}
                  </view>
                  
         <view class="summary-actions">
           <button class="lc-btn lc-btn-outline action-btn" bind:tap="onRestart">
             <t-icon name="refresh" size="36rpx" color="var(--lc-primary)" />
-            <text style="margin-left: 12rpx;">Restart</text>
+            <text style="margin-left: 12rpx;">{{i18n.restart}}</text>
           </button>
           <button class="lc-btn lc-btn-primary action-btn" bind:tap="onGoHome">
             <t-icon name="home" size="36rpx" color="#fff" />
-            <text style="margin-left: 12rpx;">Back to Home</text>
+            <text style="margin-left: 12rpx;">{{i18n.backToHome}}</text>
           </button>
         </view>
                  </view>
@@ -60,7 +60,7 @@
       <view wx:elif="{{isLoadingQueue}}" class="lc-card empty">
         <view class="lc-inline-loading" style="padding: 48rpx 0;">
           <view class="lc-mini-spinner" />
-          <text class="lc-p">Loading review session...</text>
+          <text class="lc-p">{{i18n.loading}}</text>
                  </view>
                </view>
 
@@ -69,12 +69,22 @@
         <view class="study-header">
           <view>
             <view class="study-title">{{deckTitle}}{{round === 'relearn' ? ' (Relearn)' : ''}}</view>
-            <view class="study-sub">Card {{currentIndex + 1}} / {{totalCards}}</view>
+            <view class="study-sub">{{i18n.cardCounter}} {{currentIndex + 1}} / {{totalCards}}</view>
           </view>
           <button class="lc-icon-btn" bind:tap="onExitReview">
             <t-icon name="close" size="40rpx" color="var(--lc-text-muted)" />
           </button>
       </view>
+
+        <!-- Onboarding (show once) -->
+        <view wx:if="{{showOnboarding}}" class="onboarding">
+          <view class="onboarding-card">
+            <text class="onboarding-text">{{i18n.onboarding}}</text>
+            <button class="lc-icon-btn onboarding-close" catch:tap="onDismissOnboarding" hover-class="lc-hover-bg">
+              <t-icon name="close" size="32rpx" color="var(--lc-text-muted)" />
+            </button>
+          </view>
+        </view>
 
         <view class="lc-progress-track" style="margin-top: 24rpx;">
           <view
@@ -84,19 +94,25 @@
     </view>
 
         <!-- Study Card -->
-        <view class="card-stage" bind:tap="onFlipCard">
+        <view
+          class="card-stage"
+          bind:tap="onFlipCard"
+          bindtouchstart="onCardTouchStart"
+          bindtouchmove="onCardTouchMove"
+          bindtouchend="onCardTouchEnd"
+        >
           <view class="flip-wrapper {{isFlipped ? 'flipped' : ''}}">
             <view class="card-face face-front">
               <view wx:if="{{currentCard.topicBadge}}" class="topic-badge">{{currentCard.topicBadge}}</view>
               <view class="card-kicker">Question</view>
               <rich-text class="card-text" nodes="{{currentCard.questionRich || currentCard.question}}" />
               <view wx:if="{{currentCard.hint}}" class="hint-pill" catch:tap="onToggleHint">
-                {{showHint ? '收起提示' : '提示'}}
+                {{showHint ? i18n.hintHide : i18n.hintShow}}
               </view>
               <view wx:if="{{currentCard.hint && showHint}}" class="hint-box" catch:tap="onStopPropagation">
                 <rich-text class="hint-text" nodes="{{currentCard.hintRich || currentCard.hint}}" />
               </view>
-              <view class="card-hint">Tap to reveal answer</view>
+              <view class="card-hint">{{i18n.tapToReveal}}</view>
   </view>
 
             <view class="card-face face-back">
@@ -115,27 +131,27 @@
         <view wx:if="{{isFlipped}}" class="action-row">
           <button class="lc-btn lc-btn-danger-outline action-btn" catch:tap="onResult" data-type="forget">
             <t-icon name="close" size="36rpx" color="var(--lc-danger)" />
-            <text style="margin-left: 12rpx;">Not Understand</text>
+            <text style="margin-left: 12rpx;">{{i18n.notUnderstand}}</text>
           </button>
           <button class="lc-btn lc-btn-primary action-btn" catch:tap="onResult" data-type="remember">
             <t-icon name="check" size="36rpx" color="#fff" />
-            <text style="margin-left: 12rpx;">Understand</text>
+            <text style="margin-left: 12rpx;">{{i18n.understand}}</text>
           </button>
         </view>
 
         <button wx:else class="lc-btn lc-btn-primary full-btn" bind:tap="onShowAnswer">
           <t-icon name="refresh" size="36rpx" color="#fff" />
-          <text style="margin-left: 12rpx;">Show Answer</text>
+          <text style="margin-left: 12rpx;">{{i18n.showAnswer}}</text>
         </button>
       </view>
 
       <!-- Empty -->
       <view wx:else class="lc-card empty">
         <view class="lc-p" style="text-align:center;">
-          No cards found for this session.
+          {{i18n.noCards}}
         </view>
         <button class="lc-btn lc-btn-primary full-btn" bind:tap="onGoHome">
-          Back to Home
+          {{i18n.backToHome}}
         </button>
       </view>
     </view>

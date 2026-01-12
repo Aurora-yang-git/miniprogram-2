@@ -1,4 +1,4 @@
-import { getCommunityDeck, toggleCommunityDeckLike, collectCommunityDeck } from '../../services/community'
+import { getCommunityDeck, toggleCommunityDeckLike, enqueueCollectCommunityDeck, getCollectJob, kickCollectJob } from '../../services/community'
 import { formatRelativeTime } from '../../services/time'
 
 function getAppUiState() {
@@ -53,7 +53,10 @@ Page({
 
     isLoading: false,
     likeLoading: false,
-    collectLoading: false
+    collectLoading: false,
+    isSyncing: false,
+    collectJobId: '',
+    collectSyncText: ''
   },
 
   onLoad(options) {
@@ -137,36 +140,98 @@ Page({
     })
     if (!res || !res.confirm) return
 
-    this.setData({ collectLoading: true })
-    wx.showLoading({ title: 'Collecting...' })
+    const prevDownloads = Number(deck.downloadCount || 0)
+    const nextDownloads = already ? prevDownloads : prevDownloads + 1
+    this.setData({
+      collectLoading: true,
+      isCollected: true,
+      isSyncing: true,
+      collectJobId: '',
+      collectSyncText: 'Starting...',
+      deck: { ...deck, downloadCount: nextDownloads }
+    })
+
     try {
-      const ret = await collectCommunityDeck(id)
-      const existed = Boolean(ret && ret.existed)
-      const added = typeof (ret && ret.added) === 'number' ? ret.added : 0
-      const total = typeof (ret && ret.total) === 'number' ? ret.total : cardCount
+      const enq = await enqueueCollectCommunityDeck(id)
+      const jobId = enq && enq.jobId ? String(enq.jobId) : ''
+      if (!jobId) throw new Error('enqueue failed')
+      this.setData({ collectJobId: jobId })
 
-      // optimistic bump downloadCount when first collected
-      const nextDownloads = existed ? Number(deck.downloadCount || 0) : Number(deck.downloadCount || 0) + 1
-      this.setData({
-        isCollected: true,
-        deck: { ...deck, downloadCount: nextDownloads }
-      })
+      // Kick worker (fire-and-forget). We still poll even if kick fails (timer trigger will continue).
+      kickCollectJob(jobId).catch(() => {})
 
-      wx.hideLoading()
-      wx.vibrateShort && wx.vibrateShort({ type: 'medium' })
-      if (existed) {
-        wx.showToast({ title: added > 0 ? `Synced ${added} cards` : 'Already collected', icon: 'success' })
-      } else {
-        wx.showToast({ title: `Collected ${total} cards!`, icon: 'success' })
-      }
+      await this.pollCollectJob(jobId, { already })
     } catch (e) {
-      wx.hideLoading()
       const msg = e && e.message ? String(e.message) : 'collect failed'
       console.error('collect failed', msg)
+      // Revert optimistic UI when this was a first-time collect attempt.
+      this.setData({
+        isSyncing: false,
+        collectJobId: '',
+        collectSyncText: '',
+        ...(already
+          ? {}
+          : {
+              isCollected: false,
+              deck: { ...deck, downloadCount: prevDownloads }
+            })
+      })
       wx.showToast({ title: msg.includes('too large') ? '该卡包太大，暂不支持一键收藏' : '收藏失败', icon: 'none' })
     } finally {
       this.setData({ collectLoading: false })
     }
+  },
+
+  async pollCollectJob(jobId, { already } = {}) {
+    const id = String(jobId || '').trim()
+    if (!id) return
+
+    let startAdded = null
+    const startedAt = Date.now()
+    const hardTimeoutMs = 60 * 1000
+
+    while (Date.now() - startedAt < hardTimeoutMs) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await getCollectJob(id)
+      const job = res && res.job ? res.job : null
+      const status = job && job.status ? String(job.status) : 'queued'
+      const total = job && typeof job.total === 'number' ? Math.max(0, job.total) : 0
+      const added = job && typeof job.added === 'number' ? Math.max(0, job.added) : 0
+      const err = job && job.error ? String(job.error) : ''
+
+      if (startAdded == null) startAdded = added
+
+      const text = total > 0 ? `Syncing ${Math.min(added, total)}/${total}` : 'Syncing...'
+      this.setData({ isSyncing: true, collectSyncText: text })
+
+      if (status === 'done') {
+        const delta = Math.max(0, added - (startAdded || 0))
+        this.setData({ isSyncing: false, collectSyncText: '' })
+        wx.vibrateShort && wx.vibrateShort({ type: 'medium' })
+        wx.showToast({
+          title: already ? (delta > 0 ? `Synced ${delta} cards` : 'Already collected') : `Collected ${total || added} cards!`,
+          icon: 'success'
+        })
+        return
+      }
+
+      if (status === 'failed') {
+        this.setData({ isSyncing: false, collectSyncText: '' })
+        throw new Error(err || 'collect failed')
+      }
+
+      // Soft-kick occasionally to keep progress moving when user is watching.
+      if (Date.now() - startedAt < 15 * 1000) {
+        kickCollectJob(id).catch(() => {})
+      }
+
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, Date.now() - startedAt < 5000 ? 800 : 1500))
+    }
+
+    // Timeout: keep syncing in background (timer trigger will continue), but don't block UI.
+    this.setData({ isSyncing: false, collectSyncText: '' })
+    wx.showToast({ title: '已在后台同步', icon: 'none' })
   },
 
   goBack() {

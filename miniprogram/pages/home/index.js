@@ -269,17 +269,50 @@ Page({
         confirmColor: '#dc2626',
         success: async (res) => {
           if (!res.confirm) return
-          try {
-            if (isDefaultDeckTitle(deckTitle)) {
-              await optOutDefaultDeck(deckTitle)
-            }
-            await deleteDeckByTitle(deckTitle)
-            wx.showToast({ title: 'Deleted', icon: 'success' })
-            await this.loadDecks()
-          } catch (err) {
-            console.error('deleteDeckByTitle failed', err)
-            wx.showToast({ title: '删除失败', icon: 'none' })
+          const snapshot = {
+            decks: Array.isArray(this.data.decks) ? this.data.decks.slice() : [],
+            filters: Array.isArray(this.data.filters) ? this.data.filters.slice() : [],
+            activeFilter: String(this.data.activeFilter || 'All'),
+            searchQuery: String(this.data.searchQuery || '')
           }
+
+          // Optimistic UI: remove deck immediately
+          const nextDecks = snapshot.decks.filter((d) => String(d && d.title ? d.title : '') !== String(deckTitle))
+          const nextFilters = extractFiltersFromDecks(nextDecks)
+          const nextActive = nextFilters.includes(snapshot.activeFilter) ? snapshot.activeFilter : 'All'
+          const q = snapshot.searchQuery.trim().toLowerCase()
+          const nextFiltered = nextDecks.filter((d) => {
+            const title = String(d && d.title ? d.title : '')
+            const tags = Array.isArray(d && d.tags) ? d.tags : []
+            const matchesSearch = !q || title.toLowerCase().includes(q)
+            const matchesFilter = nextActive === 'All' || tags.includes(nextActive)
+            return matchesSearch && matchesFilter
+          })
+          this.setData({ decks: nextDecks, filters: nextFilters, activeFilter: nextActive, filteredDecks: nextFiltered })
+          writeHomeCache({ v: 1, ts: Date.now(), decks: nextDecks, filters: nextFilters })
+
+          // Background delete (do not block UI)
+          ;(async () => {
+            try {
+              if (isDefaultDeckTitle(deckTitle)) {
+                await optOutDefaultDeck(deckTitle)
+              }
+              await deleteDeckByTitle(deckTitle)
+              wx.showToast({ title: 'Deleted', icon: 'success' })
+              // refresh silently so stats stay accurate
+              await this.loadDecks({ silent: true })
+            } catch (err) {
+              console.error('deleteDeckByTitle failed', err)
+              // Restore snapshot on failure
+              const decks = snapshot.decks
+              const filters = snapshot.filters && snapshot.filters.length ? snapshot.filters : extractFiltersFromDecks(decks)
+              const activeFilter = filters.includes(snapshot.activeFilter) ? snapshot.activeFilter : 'All'
+              this.setData({ decks, filters, activeFilter })
+              this.applyFilters()
+              writeHomeCache({ v: 1, ts: Date.now(), decks, filters })
+              wx.showToast({ title: '删除失败', icon: 'none' })
+            }
+          })()
         }
       })
       return

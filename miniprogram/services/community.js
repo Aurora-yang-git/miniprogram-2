@@ -25,6 +25,25 @@ async function collectCommunityDeck(deckId) {
   return await callOkFunction('community', { action: 'collectDeck', deckId: id })
 }
 
+async function enqueueCollectCommunityDeck(deckId) {
+  const id = String(deckId || '').trim()
+  if (!id) throw new Error('missing deckId')
+  return await callOkFunction('community', { action: 'enqueueCollect', deckId: id })
+}
+
+async function getCollectJob(jobId) {
+  const id = String(jobId || '').trim()
+  if (!id) throw new Error('missing jobId')
+  return await callOkFunction('community', { action: 'getCollectJob', jobId: id })
+}
+
+async function kickCollectJob(jobId) {
+  const id = String(jobId || '').trim()
+  if (!id) throw new Error('missing jobId')
+  // Fire-and-forget worker kick; worker itself enforces job ownership when OPENID present.
+  return await callOkFunction('communityCollectWorker', { action: 'kick', jobId: id })
+}
+
 async function getMyDeckPublishStatus(deckTitle) {
   const title = String(deckTitle || '').trim()
   if (!title) throw new Error('missing deckTitle')
@@ -49,6 +68,9 @@ export {
   getCommunityDeck,
   toggleCommunityDeckLike,
   collectCommunityDeck,
+  enqueueCollectCommunityDeck,
+  getCollectJob,
+  kickCollectJob,
   getMyDeckPublishStatus,
   publishMyDeck,
   unpublishMyDeck

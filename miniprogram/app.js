@@ -1,8 +1,35 @@
 // app.js
 import { ensureUserStats } from './services/userStats'
+import { listCommunityDecks } from './services/community'
+import { getLocale as detectLocale, getI18n as buildI18n } from './utils/i18n'
 
 const THEME_MODE_KEY = 'themeMode' // system | light | dark
 const SYSTEM_THEME_CACHE_KEY = 'systemThemeCache' // light | dark (system-derived)
+
+const COMMUNITY_CACHE_PREFIX = 'community_decks_cache_v1_'
+const COMMUNITY_CACHE_TTL_MS = 10 * 60 * 1000
+
+function shouldPrefetchCommunity(sortBy) {
+  try {
+    const key = `${COMMUNITY_CACHE_PREFIX}${sortBy}`
+    const v = wx.getStorageSync && wx.getStorageSync(key)
+    const obj = typeof v === 'string' ? JSON.parse(v) : v
+    const ts = obj && typeof obj.ts === 'number' ? obj.ts : 0
+    if (ts && Date.now() - ts < COMMUNITY_CACHE_TTL_MS) return false
+  } catch (e) {
+    // ignore
+  }
+  return true
+}
+
+function writeCommunityCache(sortBy, decks) {
+  try {
+    const key = `${COMMUNITY_CACHE_PREFIX}${sortBy}`
+    wx.setStorageSync && wx.setStorageSync(key, { v: 1, ts: Date.now(), decks })
+  } catch (e) {
+    // ignore
+  }
+}
 
 App({
   globalData: {
@@ -10,7 +37,38 @@ App({
     themeMode: 'system',
     systemTheme: 'light',
     statusBarRpx: 0,
-    safeBottomRpx: 0
+    safeBottomRpx: 0,
+    locale: 'zh'
+  },
+
+  refreshLocale() {
+    const loc = detectLocale()
+    this.globalData.locale = loc
+    // Broadcast to current pages so UI text can update if system language changes
+    try {
+      const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+      if (Array.isArray(pages)) {
+        pages.forEach((p) => {
+          try {
+            if (p && typeof p.setData === 'function') p.setData({ locale: loc })
+          } catch (e) {
+            // ignore per page
+          }
+        })
+      }
+    } catch (e) {
+      // ignore
+    }
+    return loc
+  },
+
+  getLocale() {
+    const loc = this.globalData && typeof this.globalData.locale === 'string' ? this.globalData.locale : ''
+    return loc === 'en' || loc === 'zh' ? loc : detectLocale()
+  },
+
+  getI18n(namespace) {
+    return buildI18n(namespace, this.getLocale())
   },
 
   readCachedSystemTheme() {
@@ -274,6 +332,13 @@ App({
     this.applyTheme(initialTheme)
     this.ensureSystemMetrics()
 
+    // Locale init (follow system language)
+    try {
+      this.globalData.locale = detectLocale()
+    } catch (e) {
+      this.globalData.locale = 'zh'
+    }
+
     // Listen to system theme changes when in system mode.
     try {
       if (typeof wx.onThemeChange === 'function') {
@@ -317,6 +382,21 @@ App({
           ensureUserStats().catch((e) => {
             console.warn('ensureUserStats failed', e)
           })
+
+          // Prefetch Community "hot" list so first entry is instant (hydrates from cache).
+          try {
+            if (shouldPrefetchCommunity('hot')) {
+              setTimeout(() => {
+                listCommunityDecks({ sortBy: 'hot', limit: 20 })
+                  .then((decks) => {
+                    if (Array.isArray(decks) && decks.length) writeCommunityCache('hot', decks)
+                  })
+                  .catch(() => {})
+              }, 0)
+            }
+          } catch (e) {
+            // ignore
+          }
         }
 
         if (maybePromise && typeof maybePromise.then === 'function') {

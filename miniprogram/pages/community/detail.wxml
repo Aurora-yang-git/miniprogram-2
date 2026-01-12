@@ -120,12 +120,12 @@
 
     <button
       class="btn-primary {{isCollected ? 'collected' : ''}}"
-      disabled="{{collectLoading}}"
+      disabled="{{collectLoading || isSyncing}}"
       bind:tap="collectDeck"
       hover-class="lc-hover-primary"
     >
       <text class="btn-icon">{{isCollected ? '✓' : '📥'}}</text>
-      <text class="btn-text">{{collectLoading ? 'Collecting...' : (isCollected ? 'Re-sync' : 'Collect')}}</text>
+      <text class="btn-text">{{isSyncing ? collectSyncText : (isCollected ? 'Re-sync' : 'Collect')}}</text>
     </button>
   </view>
 </view>

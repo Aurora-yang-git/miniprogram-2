@@ -15,6 +15,7 @@
 - **学习与复习**
   - **Study**：按卡包全量学习
   - **Review**：只复习到期卡（due）
+  - ✅ **丝滑开局**：Review/Study 进入时先加载一小批（首批 20）即可开始，剩余队列后台分页补全（云函数 `getReviewQueue`）
   - 复习结果写入云端，由云函数更新 **nextReviewAt / streak / XP**
 - **目标与数据面板**
   - Daily Goal、今日完成量、连续学习 streak、周/月统计
@@ -87,13 +88,22 @@ npm install
       - `community_decks`
       - `community_deck_likes`
       - `community_deck_collections`
+      - `community_collect_jobs`（收藏后台任务队列，用于秒反馈+进度）
     - 部署云函数：`cloudfunctions/community`（上传并部署：云端安装依赖）
+    - 部署收藏后台 worker（强烈推荐 / 体验关键）：
+      - 部署云函数：`cloudfunctions/communityCollectWorker`（上传并部署：云端安装依赖）
+      - 启用定时触发器：
+        - 打开 `cloudfunctions/communityCollectWorker/config.json`
+        - 在微信开发者工具中右键该 `config.json` → **上传触发器**
     - 首次打开小程序的 **Community 页面** 会自动触发云函数幂等 seed：把“官方默认卡包”写入 `community_decks`（不再自动写入每个用户的 `cards`）
     - **发布/取消发布**：在任意本地 Deck 的详情页，有一个 **Community 开关**，开启后发布到 Community；关闭会从 Community 下架
     - 可选环境变量（不配置则用默认值）：
       - `COMMUNITY_MAX_COLLECT`：单次收藏最大卡片数（默认 `80`）
       - `COMMUNITY_MAX_PUBLISH`：单次发布最大卡片数（默认 `200`）
       - `COMMUNITY_COLLECT_CONCURRENCY`：收藏时并发写入卡片的并发数（默认 `8`，建议 5~10）
+
+  - **启用快速队列云函数（强烈推荐 / 体验关键）**
+    - 部署云函数：`cloudfunctions/getReviewQueue`（上传并部署：云端安装依赖）
 
 ### 依赖说明与冗余依赖结论
 
@@ -118,6 +128,8 @@ npm install
 - **`analyzeImage`**：输入云存储 `fileID`，输出 OCR 文本（依赖 `MOONSHOT_API_KEY`）
 - **`resetDailyScore`**：后台 worker（定时触发器），处理 `create_jobs`：OCR→AI 生成→写入 `cards`→更新 job 进度/状态（依赖 `DEEPSEEK_API_KEY`；图片模式需 `MOONSHOT_API_KEY`）
 - **`community`**：Community（社区卡包）：浏览/搜索/排序 + 详情页 + 点赞 + 收藏 + **发布/取消发布我的 Deck**（收藏会把社区 deck 的卡片复制到我的 `cards`）
+- **`communityCollectWorker`**：Community 收藏后台 worker（定时触发器 + 客户端可 kick），把长耗时拷卡移出点击链路，并写入 `community_collect_jobs` 进度
+- **`getReviewQueue`**：Review/Study 队列云函数：首批快速返回 + 支持分页，前端可后台补全队列
 
 ### 云数据库索引建议
 
@@ -133,6 +145,10 @@ npm install
   - `downloadCount`（降序）
   - `createdAt`（降序）
 - **`create_jobs`**
+  - `status`（升序）
+  - `status + updatedAt`（组合索引）
+
+- **`community_collect_jobs`**
   - `status`（升序）
   - `status + updatedAt`（组合索引）
 
@@ -164,6 +180,7 @@ npm install
 
 - **`community_deck_likes`**：用户点赞记录（云函数按 `OPENID_deckId` 作为 docId 幂等）
 - **`community_deck_collections`**：用户收藏记录（云函数按 `OPENID_deckId` 作为 docId 幂等）
+- **`community_collect_jobs`**： 收藏后台任务队列（`enqueueCollect` 秒返回 jobId；worker 写入 `added/total/status`）
 - **`leaderboard_cache`**：排行榜缓存（由 `leaderboardWorker` 写入 `latest` 文档；`getGlobalRank` 读取）
 
 更完整的数据流与架构说明请参考：`docs/architecture.md`
