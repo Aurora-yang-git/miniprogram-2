@@ -1,0 +1,11 @@
+{
+  "permissions": {},
+  "triggers": [
+    {
+      "name": "leaderboardWorker",
+      "type": "timer",
+      "config": "0 */5 * * * * *"
+    }
+  ]
+}
+

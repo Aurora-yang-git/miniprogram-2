@@ -33,8 +33,8 @@
           <view class="review-items">
             <block wx:for="{{notUnderstoodCards}}" wx:key="cardId">
               <view class="review-item">
-                <view class="review-q">Q: {{item.question}}</view>
-                <view class="review-a">A: {{item.answer}}</view>
+                <rich-text class="review-q" nodes="{{item.questionRich || ('Q: ' + item.question)}}" />
+                <rich-text class="review-a" nodes="{{item.answerRich || ('A: ' + item.answer)}}" />
               </view>
             </block>
           </view>
@@ -87,16 +87,24 @@
         <view class="card-stage" bind:tap="onFlipCard">
           <view class="flip-wrapper {{isFlipped ? 'flipped' : ''}}">
             <view class="card-face face-front">
+              <view wx:if="{{currentCard.topicBadge}}" class="topic-badge">{{currentCard.topicBadge}}</view>
               <view class="card-kicker">Question</view>
-              <view class="card-text">{{currentCard.question}}</view>
+              <rich-text class="card-text" nodes="{{currentCard.questionRich || currentCard.question}}" />
+              <view wx:if="{{currentCard.hint}}" class="hint-pill" catch:tap="onToggleHint">
+                {{showHint ? '收起提示' : '提示'}}
+              </view>
+              <view wx:if="{{currentCard.hint && showHint}}" class="hint-box" catch:tap="onStopPropagation">
+                <rich-text class="hint-text" nodes="{{currentCard.hintRich || currentCard.hint}}" />
+              </view>
               <view class="card-hint">Tap to reveal answer</view>
   </view>
 
             <view class="card-face face-back">
+              <view wx:if="{{currentCard.topicBadge}}" class="topic-badge topic-badge-back">{{currentCard.topicBadge}}</view>
               <view class="card-kicker back-kicker">Answer</view>
               <scroll-view scroll-y class="answer-scroll">
                 <view class="answer-body">
-                  <view class="answer-text">{{currentCard.answer}}</view>
+                  <rich-text class="answer-text" nodes="{{currentCard.answerRich || currentCard.answer}}" />
                 </view>
               </scroll-view>
     </view>

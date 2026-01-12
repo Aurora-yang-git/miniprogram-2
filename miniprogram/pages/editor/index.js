@@ -1,4 +1,5 @@
 import { flashcardCollections } from '../../utils/flashcard-config'
+import { createJob } from '../../services/createJobs'
 
 Page({
   data: {
@@ -42,142 +43,6 @@ Page({
 
   onRemoveImage() {
     this.setData({ images: [], activeImageIndex: 0 })
-  },
-
-  async generateQuestionByDeepSeek(sourceText) {
-    if (!wx.cloud || !wx.cloud.extend || !wx.cloud.extend.AI || !wx.cloud.extend.AI.createModel) {
-      throw new Error('AI能力不可用')
-    }
-
-    const model = wx.cloud.extend.AI.createModel('deepseek')
-    const systemPrompt = '你是学习卡片助手。请根据用户提供的内容，生成一个用于记忆卡片的“问题”。要求：问题必须能从内容中直接回答；尽量简短具体；只输出问题本身，不要解释，不要多条。'
-    const userInput = String(sourceText || '').trim()
-    if (!userInput) {
-      throw new Error('内容为空')
-    }
-
-    const res = await model.streamText({
-      data: {
-        model: 'deepseek-r1',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userInput }
-        ]
-      }
-    })
-
-    if (!res || !res.textStream || typeof res.textStream[Symbol.asyncIterator] !== 'function') {
-      throw new Error('AI返回格式异常')
-    }
-
-    let out = ''
-    for await (let str of res.textStream) {
-      out += str
-    }
-    let question = String(out || '').trim()
-    const firstLine = question
-      .split('\n')
-      .map((line) => String(line || '').trim())
-      .find((line) => !!line) || ''
-    question = firstLine
-      .replace(/^([Qq]|问题)\s*[:：]\s*/, '')
-      .replace(/^\d+[.、]\s*/, '')
-      .replace(/^[\-*]\s*/, '')
-      .replace(/^["'“”]+/, '')
-      .replace(/["'“”]+$/, '')
-      .trim()
-
-    if (!question) {
-      throw new Error('生成结果为空')
-    }
-    return question
-  },
-
-  parseCardsFromDeepSeekOutput(rawText) {
-    const raw = String(rawText || '').trim()
-    const noFence = raw.replace(/```[a-zA-Z]*\n?/g, '').trim()
-
-    let jsonText = noFence
-    const firstArr = noFence.indexOf('[')
-    const lastArr = noFence.lastIndexOf(']')
-    if (firstArr >= 0 && lastArr > firstArr) {
-      jsonText = noFence.slice(firstArr, lastArr + 1)
-    } else {
-      const firstObj = noFence.indexOf('{')
-      const lastObj = noFence.lastIndexOf('}')
-      if (firstObj >= 0 && lastObj > firstObj) {
-        jsonText = noFence.slice(firstObj, lastObj + 1)
-      }
-    }
-
-    let parsed = null
-    try {
-      parsed = JSON.parse(jsonText)
-    } catch (e) {
-      parsed = null
-    }
-
-    const arr = Array.isArray(parsed)
-      ? parsed
-      : (parsed && Array.isArray(parsed.cards) ? parsed.cards : [])
-
-    return arr
-      .map((it) => {
-        const qRaw = it && (it.question ?? it.q)
-        const aRaw = it && (it.answer ?? it.a)
-        const question = qRaw == null ? '' : String(qRaw).trim()
-        const answer = Array.isArray(aRaw)
-          ? aRaw.map((x) => String(x == null ? '' : x).trim()).filter(Boolean).join('\n')
-          : (aRaw == null ? '' : String(aRaw).trim())
-        const tagsRaw = it && (it.tags ?? it.tagList)
-        const tags = Array.isArray(tagsRaw)
-          ? tagsRaw.map((t) => String(t == null ? '' : t).trim()).filter(Boolean)
-          : []
-        return {
-          question,
-          answer,
-          tags
-        }
-      })
-      .filter((it) => it.question && it.answer)
-  },
-
-  async generateCardsByDeepSeek(sourceText) {
-    if (!wx.cloud || !wx.cloud.extend || !wx.cloud.extend.AI || !wx.cloud.extend.AI.createModel) {
-      throw new Error('AI能力不可用')
-    }
-
-    const model = wx.cloud.extend.AI.createModel('deepseek')
-    const systemPrompt = '你是学习卡片助手。请根据用户提供的材料生成多张用于记忆的卡片。输出要求：只输出严格的 JSON 数组，不要任何解释或额外文字；数组每一项必须包含 question 与 answer 字段（字符串）；可选包含 tags 字段（字符串数组，0-5个）；question 要简短具体、可直接从材料中回答；answer 给出对应要点（可分点）；卡片数量由你根据材料复杂度决定，建议 3-12 张，最多 20 张。'
-    const userInput = String(sourceText || '').trim()
-    if (!userInput) {
-      throw new Error('内容为空')
-    }
-
-    const res = await model.streamText({
-      data: {
-        model: 'deepseek-r1',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userInput }
-        ]
-      }
-    })
-
-    if (!res || !res.textStream || typeof res.textStream[Symbol.asyncIterator] !== 'function') {
-      throw new Error('AI返回格式异常')
-    }
-
-    let out = ''
-    for await (let str of res.textStream) {
-      out += str
-    }
-
-    const cards = this.parseCardsFromDeepSeekOutput(out)
-    if (!cards.length) {
-      throw new Error('未生成到卡片')
-    }
-    return cards
   },
 
   normalizeOcrText(rawText) {
@@ -279,7 +144,7 @@ Page({
   },
 
   async onGenerateByAI() {
-    if (!wx.cloud || !wx.cloud.callFunction) {
+    if (!wx.cloud || !wx.cloud.callFunction || !wx.cloud.uploadFile || !wx.cloud.database) {
       wx.showToast({ title: '云能力不可用', icon: 'none' })
       return
     }
@@ -296,7 +161,7 @@ Page({
       const proceed = await new Promise((resolve) => {
         wx.showModal({
           title: '批量生成卡片',
-          content: `将识别 ${selectedCount} 张图片并生成多张卡片，可能需要较长时间，是否继续？`,
+          content: `将上传 ${selectedCount} 张图片并在云端后台生成卡片（可退出小程序），是否继续？`,
           confirmText: '继续',
           cancelText: '取消',
           success: (res) => resolve(!!(res && res.confirm)),
@@ -316,92 +181,28 @@ Page({
         return
       }
 
-      const blocks = []
-      for (let i = 0; i < sourceImages.length; i += 1) {
-        wx.showLoading({ title: `识别中 ${i + 1}/${sourceImages.length}` })
-        const fileID = sourceImages[i]
-        const ocrRes = await wx.cloud.callFunction({
-          name: 'analyzeImage',
-          data: { fileID }
-        })
-        const ocrResult = ocrRes && ocrRes.result ? ocrRes.result : null
-        if (!ocrResult || ocrResult.ok !== true) {
-          const baseMsg = (ocrResult && ocrResult.error) || '识别失败'
-          const extra = []
-          if (ocrResult && ocrResult.codeVersion) extra.push(`codeVersion=${ocrResult.codeVersion}`)
-          if (ocrResult && ocrResult.imageSource) extra.push(`imageSource=${ocrResult.imageSource}`)
-          if (ocrResult && typeof ocrResult.usedFallback === 'boolean') {
-            extra.push(`usedFallback=${ocrResult.usedFallback}`)
-          }
-          throw new Error(extra.length ? `${baseMsg} (${extra.join(', ')})` : baseMsg)
-        }
-        const text = this.normalizeOcrText(ocrResult && ocrResult.text)
-        if (text) {
-          blocks.push(`【图片${i + 1}】\n${text}`)
-        }
-      }
+      wx.showLoading({ title: '提交中' })
 
-      const mergedText = blocks.join('\n\n')
-      if (!mergedText) {
-        wx.hideLoading()
-        wx.showToast({ title: '未识别到文字', icon: 'none' })
-        return
-      }
-
-      wx.showLoading({ title: '生成卡片中' })
-      const cards = await this.generateCardsByDeepSeek(mergedText)
-
-      if (!wx.cloud || !wx.cloud.database) {
-        throw new Error('云数据库不可用')
-      }
-
-      const db = wx.cloud.database()
-      const createdAt = db.serverDate()
-      for (let i = 0; i < cards.length; i += 1) {
-        wx.showLoading({ title: `保存中 ${i + 1}/${cards.length}` })
-        const item = cards[i] || {}
-        const question = (item.question || '').trim()
-        const answer = (item.answer || '').trim()
-        if (!question || !answer) continue
-
-        const data = {
-          question,
-          answer,
-          answerSections: [{ type: 'text', title: '答案', content: answer }],
-          tags: Array.isArray(item.tags) ? item.tags : [],
-          isPublic: false,
-          srsEF: 2.5,
-          srsInterval: 0,
-          srsReps: 0,
-          lastReviewedAt: 0,
-          nextReviewAt: 0,
-          createdAt,
-          updatedAt: createdAt
-        }
-        if (sourceImages && sourceImages.length) {
-          data.sourceImages = sourceImages
-          data.sourceImage = sourceImages[0]
-        }
-        await db.collection(flashcardCollections.cards).add({ data })
-      }
-
-      wx.hideLoading()
-      const goBack = await new Promise((resolve) => {
-        wx.showModal({
-          title: '生成完成',
-          content: `已生成 ${cards.length} 张卡片`,
-          confirmText: '返回卡包',
-          cancelText: '继续编辑',
-          success: (res) => resolve(!!(res && res.confirm)),
-          fail: () => resolve(true)
-        })
+      const jobId = await createJob({
+        deckTitle: 'Inbox',
+        mode: 'images',
+        imageFileIDs: sourceImages,
+        rawText: '',
+        knowledge: ''
       })
 
-      if (goBack) {
-        wx.navigateBack({ delta: 1 })
-      } else {
-        this.setData({ question: '', answer: '' })
-      }
+      wx.hideLoading()
+      wx.showModal({
+        title: '已提交云端生成',
+        content: '任务已提交到云端后台生成，你可以退出小程序。稍后在 Create 页查看进度与结果。',
+        confirmText: '去查看',
+        cancelText: '留在此页',
+        success: (res) => {
+          if (res && res.confirm) {
+            wx.switchTab({ url: '/pages/library/index' })
+          }
+        }
+      })
     } catch (err) {
       console.error('generate by ai failed', err)
       wx.hideLoading()

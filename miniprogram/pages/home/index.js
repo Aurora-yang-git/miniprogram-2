@@ -1,5 +1,5 @@
 import { listUserCards, computeDecksFromCards, extractFiltersFromDecks, deleteDeckByTitle } from '../../services/cards'
-import { ensureDefaultDecks, isDefaultDeckTitle, optOutDefaultDeck } from '../../services/defaultDecks'
+import { isDefaultDeckTitle, optOutDefaultDeck } from '../../services/defaultDecks'
 import { resumePendingCreateJob } from '../../services/pendingCreate'
 
 const HOME_CACHE_KEY = 'home_decks_cache_v1'
@@ -81,16 +81,6 @@ Page({
 
     // Fast path: render cached decks immediately, refresh silently in background.
     const hasCache = this.hydrateDeckCache()
-
-    // Ensure built-in decks are complete and properly titled (ACT/CSP).
-    try {
-      if (wx.cloud && wx.cloud.database) {
-        if (hasCache) ensureDefaultDecks().catch(() => {})
-        else await ensureDefaultDecks()
-      }
-    } catch (e) {
-      // ignore
-    }
 
     this.loadDecks({ silent: hasCache })
 

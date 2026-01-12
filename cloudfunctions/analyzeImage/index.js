@@ -1,5 +1,7 @@
 const https = require('https')
 
+const KEEP_ALIVE_AGENT = new https.Agent({ keepAlive: true, maxSockets: 32 })
+
 let cloud = null
 try {
   cloud = require('wx-server-sdk')
@@ -9,6 +11,10 @@ try {
 }
 
 const codeVersion = 'analyzeImage-2025-12-21-timeoutms'
+
+function makeReqId() {
+  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+}
 
 function getImageMimeType(fileID) {
   const lower = String(fileID || '').toLowerCase()
@@ -21,7 +27,18 @@ function getImageMimeType(fileID) {
 }
 
 async function resolveImageUrl(cloudSdk, fileID) {
-  return resolveImageDataUrl(cloudSdk, fileID)
+  const id = String(fileID || '').trim()
+  if (!id) return { url: '', source: '' }
+  try {
+    const tmp = await cloudSdk.getTempFileURL({ fileList: [id] })
+    const list = tmp && Array.isArray(tmp.fileList) ? tmp.fileList : []
+    const first = list && list[0] ? list[0] : null
+    const url = first && first.tempFileURL ? String(first.tempFileURL) : ''
+    if (url) return { url, source: 'tempFileURL' }
+  } catch (e) {
+    // ignore and fallback
+  }
+  return resolveImageDataUrl(cloudSdk, id)
 }
 
 async function resolveImageDataUrl(cloudSdk, fileID) {
@@ -48,6 +65,7 @@ function moonshotChatCompletions(apiKey, payload, timeoutMs = 60000) {
       'https://api.moonshot.cn/v1/chat/completions',
       {
         method: 'POST',
+        agent: KEEP_ALIVE_AGENT,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
@@ -95,22 +113,31 @@ function moonshotChatCompletions(apiKey, payload, timeoutMs = 60000) {
 }
 
 exports.main = async (event) => {
+  const reqId = makeReqId()
+  const startedAt = Date.now()
+  const finish = (payload) => {
+    const durationMs = Date.now() - startedAt
+    const ok = payload && payload.ok ? 'ok' : 'fail'
+    console.log(`[analyzeImage] ${ok} reqId=${reqId} durationMs=${durationMs}`)
+    return { ...(payload || {}), reqId, durationMs }
+  }
+
   const fileID = event && event.fileID
   if (!fileID) {
-    return { ok: false, error: 'missing fileID', codeVersion }
+    return finish({ ok: false, error: 'missing fileID', codeVersion })
   }
 
   const apiKey = process.env.MOONSHOT_API_KEY
   if (!apiKey) {
-    return { ok: false, error: 'missing MOONSHOT_API_KEY', codeVersion }
+    return finish({ ok: false, error: 'missing MOONSHOT_API_KEY', codeVersion })
   }
 
   if (!cloud) {
-    return {
+    return finish({
       ok: false,
       error: 'wx-server-sdk missing (redeploy analyzeImage with dependencies)',
       codeVersion
-    }
+    })
   }
 
   let imageSource = ''
@@ -140,7 +167,7 @@ exports.main = async (event) => {
     let imageUrl = resolved && resolved.url ? resolved.url : ''
     imageSource = resolved && resolved.source ? resolved.source : ''
     if (!imageUrl) {
-      return { ok: false, error: 'resolve image url failed', codeVersion }
+      return finish({ ok: false, error: 'resolve image url failed', codeVersion })
     }
 
     const payload = {
@@ -190,7 +217,7 @@ exports.main = async (event) => {
       completion.choices[0].message.content
     const text = typeof content === 'string' ? content.trim() : ''
 
-    return {
+    return finish({
       ok: true,
       text,
       model,
@@ -198,15 +225,15 @@ exports.main = async (event) => {
       usedFallback,
       codeVersion,
       usage: completion && completion.usage ? completion.usage : null
-    }
+    })
   } catch (err) {
     console.error('analyzeImage failed', err)
-    return {
+    return finish({
       ok: false,
       error: err && err.message ? err.message : String(err),
       imageSource,
       usedFallback,
       codeVersion
-    }
+    })
   }
 }

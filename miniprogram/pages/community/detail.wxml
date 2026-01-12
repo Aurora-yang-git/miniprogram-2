@@ -1,0 +1,133 @@
+<view
+  class="lc-root {{theme === 'dark' ? 'lc-theme-dark' : ''}}"
+  style="--lc-status-bar: {{statusBarRpx}}rpx; --lc-safe-bottom: {{safeBottomRpx}}rpx; --lc-tabbar-h: 0rpx;"
+>
+  <view class="lc-header">
+    <view class="lc-header-inner">
+      <text class="lc-header-title">LearnCards</text>
+    </view>
+  </view>
+
+  <view class="lc-main">
+    <view class="lc-container detail-container">
+      <!-- Back -->
+      <view class="back-btn" bind:tap="goBack" hover-class="lc-hover-bg">
+        <t-icon name="chevron-left" size="36rpx" color="var(--lc-text-muted)" />
+        <text class="back-text">Back</text>
+      </view>
+
+      <view wx:if="{{isLoading && !deck}}" class="lc-card empty-card">
+        <view class="lc-inline-loading" style="padding: 48rpx 0;">
+          <view class="lc-mini-spinner" />
+          <text class="lc-p">Loading...</text>
+        </view>
+      </view>
+
+      <view wx:elif="{{!deck}}" class="lc-card empty-card">
+        <text class="lc-p" style="text-align:center;">Deck not found</text>
+      </view>
+
+      <view wx:else class="deck-info">
+        <text class="deck-title">{{deck.title}}</text>
+
+        <!-- Author -->
+        <view class="author-section">
+          <image class="author-avatar" src="{{deck.authorAvatar}}" mode="aspectFill" />
+          <view class="author-details">
+            <text class="author-name">{{deck.authorName}}</text>
+            <text class="author-level">🏅 Level {{deck.authorLevel}}</text>
+          </view>
+        </view>
+
+        <!-- Stats Card -->
+        <view class="stats-card">
+          <view class="stat-row">
+            <view class="stat-item">
+              <text class="stat-label">Cards</text>
+              <text class="stat-value">{{deck.cardCount}}</text>
+            </view>
+            <view class="stat-item">
+              <text class="stat-label">Likes</text>
+              <text class="stat-value">{{deck.likeCount}}</text>
+            </view>
+          </view>
+          <view class="stat-row">
+            <view class="stat-item">
+              <text class="stat-label">Downloads</text>
+              <text class="stat-value">{{deck.downloadCount}}</text>
+            </view>
+            <view class="stat-item">
+              <text class="stat-label">Uploaded</text>
+              <text class="stat-value">{{deck.uploadTime}}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- Description -->
+        <view class="section-card">
+          <text class="section-title">📝 Description</text>
+          <text class="description-text">{{deck.description}}</text>
+        </view>
+
+        <!-- Tags -->
+        <view class="section-card">
+          <text class="section-title">🏷️ Tags</text>
+          <view class="tags-list">
+            <text wx:for="{{deck.tags}}" wx:key="*this" class="tag">{{item}}</text>
+          </view>
+        </view>
+
+        <!-- Preview Cards -->
+        <view class="section-card">
+          <view class="preview-header">
+            <text class="section-title">📋 Preview Cards</text>
+            <text class="preview-count">{{showAllCards ? deck.cards.length : 3}} / {{deck.cards.length}}</text>
+          </view>
+
+          <view class="preview-cards">
+            <view
+              wx:for="{{showAllCards ? deck.cards : deck.cards.slice(0, 3)}}"
+              wx:key="index"
+              class="preview-card"
+            >
+              <text class="card-number">{{index + 1}}.</text>
+              <text class="card-question">{{item.question}}</text>
+            </view>
+
+            <view wx:if="{{!showAllCards && deck.cards.length > 3}}" class="show-more-btn" bind:tap="toggleShowAll" hover-class="lc-hover-bg">
+              <text>Show all {{deck.cards.length}} cards ›</text>
+            </view>
+            <view wx:if="{{showAllCards}}" class="show-more-btn" bind:tap="toggleShowAll" hover-class="lc-hover-bg">
+              <text>Show less ‹</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Action Buttons (Fixed at bottom) -->
+  <view class="action-buttons">
+    <button
+      class="btn-secondary {{isLiked ? 'liked' : ''}}"
+      disabled="{{likeLoading}}"
+      bind:tap="toggleLike"
+      hover-class="lc-hover-bg"
+    >
+      <text class="btn-icon">{{isLiked ? '❤️' : '🤍'}}</text>
+      <text class="btn-text">{{isLiked ? 'Liked' : 'Like'}}</text>
+    </button>
+
+    <button
+      class="btn-primary {{isCollected ? 'collected' : ''}}"
+      disabled="{{collectLoading}}"
+      bind:tap="collectDeck"
+      hover-class="lc-hover-primary"
+    >
+      <text class="btn-icon">{{isCollected ? '✓' : '📥'}}</text>
+      <text class="btn-text">{{collectLoading ? 'Collecting...' : (isCollected ? 'Re-sync' : 'Collect')}}</text>
+    </button>
+  </view>
+</view>
+
+

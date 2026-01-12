@@ -1,4 +1,6 @@
 import { listCardsByDeckTitle, normalizeDeckTitle, createCard, updateCard, deleteCard } from '../../services/cards'
+import { toRichTextHtml } from '../../utils/richText'
+import { getMyDeckPublishStatus, publishMyDeck, unpublishMyDeck } from '../../services/community'
 
 const DECK_CACHE_PREFIX = 'deck_detail_cache_v1:'
 const DECK_CACHE_TTL_MS = 24 * 60 * 60 * 1000
@@ -142,6 +144,10 @@ Page({
     isSaving: false,
     deletingId: '',
 
+    publishLoading: false,
+    isPublished: false,
+    publishedCommunityDeckId: '',
+
     deckTitle: 'Inbox',
     deck: {
       id: '',
@@ -179,6 +185,8 @@ Page({
       deckCards: []
     })
 
+    this.loadPublishStatus(deckTitle).catch(() => {})
+
     const hasCache = this.hydrateDeckCache(deckTitle)
     if (hasCache) this.loadDeck({ silent: true })
     else await this.loadDeck({ silent: false })
@@ -195,7 +203,18 @@ Page({
     const cached = readDeckCache(deckTitle)
     if (!cached) return false
     const deck = cached && typeof cached.deck === 'object' && cached.deck ? cached.deck : null
-    const deckCards = Array.isArray(cached.deckCards) ? cached.deckCards : []
+    const deckCards = (Array.isArray(cached.deckCards) ? cached.deckCards : []).map((c) => {
+      const question = typeof (c && c.question) === 'string' ? c.question : ''
+      const answer = typeof (c && c.answer) === 'string' ? c.answer : ''
+      const questionRich = typeof (c && c.questionRich) === 'string' && c.questionRich ? c.questionRich : toRichTextHtml(question)
+      const answerRich = typeof (c && c.answerRich) === 'string' && c.answerRich ? c.answerRich : toRichTextHtml(answer)
+      const topic = typeof (c && c.topic) === 'string' ? c.topic : ''
+      const cardTags = Array.isArray(c && c.cardTags) ? c.cardTags : []
+      const topicBadge = (typeof (c && c.topicBadge) === 'string' && c.topicBadge)
+        ? c.topicBadge
+        : (topic || (cardTags.length ? String(cardTags[0] || '').trim() : ''))
+      return { ...(c || {}), question, answer, topic, cardTags, topicBadge, questionRich, answerRich }
+    })
     if (!deck || !deckCards.length) return false
     this.setData({
       deck,
@@ -226,7 +245,14 @@ Page({
         id: c && c._id ? c._id : (c && c.id ? c.id : ''),
         question: typeof c.question === 'string' ? c.question : '',
         answer: getAnswerText(c),
-        tags: Array.isArray(c.tags) ? c.tags : []
+        tags: Array.isArray(c.tags) ? c.tags : [],
+        topic: typeof c.topic === 'string' ? c.topic : '',
+        cardTags: Array.isArray(c.cardTags) ? c.cardTags : [],
+        topicBadge: (typeof c.topic === 'string' && c.topic.trim())
+          ? c.topic.trim()
+          : (Array.isArray(c.cardTags) && c.cardTags.length ? String(c.cardTags[0] || '').trim() : ''),
+        questionRich: toRichTextHtml(typeof c.question === 'string' ? c.question : ''),
+        answerRich: toRichTextHtml(getAnswerText(c))
       })).filter((c) => !!c.id)
 
       const deck = computeDeckMeta(this.data.deckTitle, rawCards)
@@ -239,6 +265,67 @@ Page({
         wx.showToast({ title: '加载失败', icon: 'none' })
       }
     }
+  },
+
+  async loadPublishStatus(deckTitle) {
+    const title = typeof deckTitle === 'string' && deckTitle ? deckTitle : this.data.deckTitle
+    if (!title) return
+    try {
+      const res = await getMyDeckPublishStatus(title)
+      const isPublic = Boolean(res && (res.isPublic || res.published))
+      const deckId = res && res.deckId ? String(res.deckId) : ''
+      this.setData({ isPublished: isPublic, publishedCommunityDeckId: deckId })
+    } catch (e) {
+      // ignore on load (network or missing config)
+    }
+  },
+
+  onPublishSwitch(e) {
+    const next = Boolean(e && e.detail && e.detail.value)
+    const prev = Boolean(this.data.isPublished)
+    if (next === prev) return
+    if (this.data.publishLoading) {
+      this.setData({ isPublished: prev })
+      return
+    }
+
+    const title = String(this.data.deckTitle || '').trim()
+    if (!title) {
+      this.setData({ isPublished: prev })
+      return
+    }
+
+    const confirmTitle = next ? 'Publish to Community?' : 'Unpublish from Community?'
+    const confirmContent = next
+      ? 'Your deck will be visible in Community. Others can like and collect it.'
+      : 'Your deck will be hidden from Community.'
+
+    wx.showModal({
+      title: confirmTitle,
+      content: confirmContent,
+      confirmText: next ? 'Publish' : 'Unpublish',
+      confirmColor: next ? '#2563eb' : '#dc2626',
+      success: async (res) => {
+        if (!res.confirm) {
+          this.setData({ isPublished: prev })
+          return
+        }
+
+        this.setData({ publishLoading: true, isPublished: next })
+        try {
+          if (next) await publishMyDeck(title)
+          else await unpublishMyDeck(title)
+          await this.loadPublishStatus(title)
+          wx.showToast({ title: next ? '已发布到社区' : '已从社区下架', icon: 'success' })
+        } catch (err) {
+          console.error('toggle publish failed', err)
+          this.setData({ isPublished: prev })
+          wx.showToast({ title: err && err.message ? err.message : '操作失败', icon: 'none' })
+        } finally {
+          this.setData({ publishLoading: false })
+        }
+      }
+    })
   },
 
   onBack() {

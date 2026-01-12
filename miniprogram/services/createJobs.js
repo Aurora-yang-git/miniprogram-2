@@ -29,13 +29,17 @@ function normalizeJob(doc) {
   }
 }
 
-async function createJob({ deckTitle, mode, rawText, imageFileIDs, knowledge }) {
+async function createJob({ deckTitle, mode, rawText, imageFileIDs, knowledge, subjectTag, subjectCandidates }) {
   const title = String(deckTitle || '').trim()
   if (!title) throw new Error('missing deckTitle')
   const m = mode === 'text' ? 'text' : 'images'
   const images = Array.isArray(imageFileIDs) ? imageFileIDs.filter((x) => typeof x === 'string' && x.trim()).slice(0, 9) : []
   const text = String(rawText || '').trim()
   const know = String(knowledge || '').trim()
+  const subject = String(subjectTag || '').trim()
+  const candidates = Array.isArray(subjectCandidates)
+    ? subjectCandidates.map((x) => String(x == null ? '' : x).trim()).filter(Boolean).slice(0, 30)
+    : []
 
   if (m === 'text' && !text) throw new Error('missing rawText')
   if (m === 'images' && !images.length) throw new Error('missing imageFileIDs')
@@ -51,8 +55,13 @@ async function createJob({ deckTitle, mode, rawText, imageFileIDs, knowledge }) 
     rawText: m === 'text' ? text : '',
     imageFileIDs: m === 'images' ? images : [],
     knowledge: know,
+    subjectTag: subject,
+    subjectCandidates: candidates,
+    contentType: '',
 
     status: 'queued',
+    retryAt: 0,
+    retryCount: 0,
     phase: m === 'images' ? 'ocr' : 'generate',
     ocrDone: 0,
     ocrTotal: m === 'images' ? images.length : 0,
@@ -98,6 +107,14 @@ async function startJob(jobId) {
   return await callOkFunction('resetDailyScore', { action: 'processCreateJob', jobId: String(jobId) })
 }
 
-export { createJob, listMyJobs, getJob, startJob }
+async function pingWorker() {
+  return await callOkFunction('resetDailyScore', { action: 'ping' })
+}
+
+async function runWorkerOnce() {
+  return await callOkFunction('resetDailyScore', { action: 'processQueuedJobs' })
+}
+
+export { createJob, listMyJobs, getJob, startJob, pingWorker, runWorkerOnce }
 
 

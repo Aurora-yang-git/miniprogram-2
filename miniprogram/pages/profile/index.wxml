@@ -100,6 +100,17 @@
         </view>
       </view>
 
+      <view wx:if="{{showDevTools}}" class="group">
+        <view class="group-title">Developer</view>
+        <view class="group-card">
+          <view class="row" bind:tap="onGoAdmin" hover-class="lc-hover-bg">
+            <t-icon name="upload" size="36rpx" color="var(--lc-text-muted)" />
+            <text class="row-label">Sync Official Decks</text>
+            <t-icon name="chevron-right" size="36rpx" color="var(--lc-text-subtle)" />
+          </view>
+        </view>
+      </view>
+
       <!-- Disclaimer -->
       <view class="disclaimer">
         <view class="disclaimer-title">⚠️ Privacy Notice</view>

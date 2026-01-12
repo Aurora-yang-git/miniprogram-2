@@ -1,0 +1,11 @@
+{
+  "permissions": {},
+  "triggers": [
+    {
+      "name": "communityCollectWorker",
+      "type": "timer",
+      "config": "0 */1 * * * * *"
+    }
+  ]
+}
+

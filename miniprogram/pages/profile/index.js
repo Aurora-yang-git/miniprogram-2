@@ -48,11 +48,23 @@ Page({
     username: '',
     isEditingUsername: false,
     tempUsername: '',
+
+    // Dev-only tools (hidden in release)
+    showDevTools: false
   },
 
   onLoad() {
     const ui = getAppUiState()
     this.setData({ theme: ui.theme, statusBarRpx: ui.statusBarRpx, safeBottomRpx: ui.safeBottomRpx })
+
+    // Show dev tools only in develop/trial builds
+    try {
+      const info = wx.getAccountInfoSync && wx.getAccountInfoSync()
+      const env = info && info.miniProgram && info.miniProgram.envVersion ? info.miniProgram.envVersion : ''
+      this.setData({ showDevTools: env === 'develop' || env === 'trial' })
+    } catch (e) {
+      this.setData({ showDevTools: false })
+    }
 
     this.hydrateNotifications()
     this.refreshAll(true)
@@ -177,8 +189,13 @@ Page({
       if (!wx.cloud || !wx.cloud.callFunction) return
       const ret = await callOkFunction('getGlobalRank', {})
       const me = ret && ret.me ? ret.me : null
-      const rank = me && typeof me.rank === 'number' ? me.rank : '-'
-      this.setData({ globalRank: rank })
+      const rankText =
+        me && typeof me.rankText === 'string' && me.rankText
+          ? me.rankText
+          : me && typeof me.rank === 'number'
+            ? String(me.rank)
+            : '-'
+      this.setData({ globalRank: rankText })
     } catch (e) {
       console.error('loadGlobalRank failed', e)
     }
@@ -282,6 +299,10 @@ Page({
 
   onExportData() {
     wx.showToast({ title: 'Coming soon', icon: 'none' })
+  },
+
+  onGoAdmin() {
+    wx.navigateTo({ url: '/pages/admin/index' })
   },
 
   onSignOut() {

@@ -1,0 +1,54 @@
+<view
+  class="lc-root {{theme === 'dark' ? 'lc-theme-dark' : ''}}"
+  style="--lc-status-bar: {{statusBarRpx}}rpx; --lc-safe-bottom: {{safeBottomRpx}}rpx;"
+>
+  <view class="lc-header">
+    <view class="lc-header-inner">
+      <view class="lc-header-left" catch:tap="goBack">
+        <t-icon name="chevron-left" size="44rpx" color="var(--lc-text)" />
+      </view>
+      <text class="lc-header-title">Admin</text>
+      <view class="lc-header-right" />
+    </view>
+  </view>
+
+  <view class="lc-main">
+    <view class="lc-container">
+      <view class="lc-h1" style="margin-bottom: 8rpx;">Sync Official Decks</view>
+      <view class="lc-p" style="margin-bottom: 24rpx;">
+        选择本地 JSON 文件并上传到云数据库 <text class="mono">community_decks</text>（不会占用小程序/云函数代码包空间）。
+      </view>
+
+      <view class="card">
+        <view class="row">
+          <text class="label">Env</text>
+          <text class="value mono">{{envVersion || '-'}}</text>
+        </view>
+        <view class="row">
+          <text class="label">Strict Sync</text>
+          <t-switch value="{{strict}}" bind:change="onToggleStrict" />
+        </view>
+        <view class="row column">
+          <text class="label">Admin Token (optional)</text>
+          <input
+            class="lc-input"
+            placeholder="If ADMIN_OPENIDS not set, paste ADMIN_TOKEN here"
+            placeholder-class="home-placeholder"
+            value="{{token}}"
+            bindinput="onTokenInput"
+          />
+        </view>
+      </view>
+
+      <button class="lc-btn lc-btn-primary" disabled="{{isSyncing}}" bind:tap="onChooseAndSync" hover-class="lc-hover-primary">
+        <block wx:if="{{isSyncing}}">Syncing...</block>
+        <block wx:else>Choose JSON & Sync</block>
+      </button>
+
+      <view wx:if="{{lastResultText}}" class="result mono">{{lastResultText}}</view>
+    </view>
+  </view>
+</view>
+
+<!--pages/admin/index.wxml-->
+<text>pages/admin/index.wxml</text>

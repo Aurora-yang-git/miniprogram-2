@@ -44,6 +44,18 @@
           </view>
         </view>
 
+        <!-- Publish Toggle -->
+        <view class="deck-publish-row" hover-class="lc-hover-bg">
+          <view class="deck-publish-left">
+            <text class="deck-publish-emoji">🌐</text>
+            <view class="deck-publish-col">
+              <text class="deck-publish-title">Community</text>
+              <text class="deck-publish-sub">{{isPublished ? 'Public' : 'Private'}}</text>
+            </view>
+          </view>
+          <t-switch value="{{isPublished}}" disabled="{{publishLoading}}" bind:change="onPublishSwitch" />
+        </view>
+
         <view class="deck-progress">
           <view class="deck-progress-row">
             <text class="deck-sub">{{deckCards.length}} cards • {{deck.dueCount}} due</text>
@@ -79,11 +91,12 @@
         <view wx:else class="cards-list">
           <block wx:for="{{deckCards}}" wx:key="id">
             <view class="card-item" hover-class="lc-hover-border">
+              <view wx:if="{{item.topicBadge}}" class="card-topic-badge">{{item.topicBadge}}</view>
               <view class="card-content">
                 <view class="card-label">Question</view>
-                <view class="card-q">{{item.question}}</view>
+                <rich-text class="card-q" nodes="{{item.questionRich || item.question}}" />
                 <view class="card-label" style="margin-top: 16rpx;">Answer</view>
-                <view class="card-a">{{item.answer}}</view>
+                <rich-text class="card-a" nodes="{{item.answerRich || item.answer}}" />
               </view>
               <view class="card-actions">
                 <button class="icon-btn" catch:tap="onEditCard" data-id="{{item.id}}" hover-class="lc-hover-bg">

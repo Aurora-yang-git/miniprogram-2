@@ -1,0 +1,139 @@
+<view
+  class="lc-root {{theme === 'dark' ? 'lc-theme-dark' : ''}}"
+  style="--lc-status-bar: {{statusBarRpx}}rpx; --lc-safe-bottom: {{safeBottomRpx}}rpx; --lc-tabbar-h: 0rpx;"
+>
+  <!-- Fixed Header (matches ui/Layout) -->
+  <view class="lc-header">
+    <view class="lc-header-inner">
+      <text class="lc-header-title">LearnCards</text>
+    </view>
+  </view>
+
+  <view class="lc-main">
+    <view class="lc-container community-container">
+      <!-- Back -->
+      <view class="back-btn" bind:tap="goBack" hover-class="lc-hover-bg">
+        <t-icon name="chevron-left" size="36rpx" color="var(--lc-text-muted)" />
+        <text class="back-text">Back</text>
+      </view>
+
+      <view class="community-title-block">
+        <view class="community-title">Community</view>
+        <view class="lc-p">Browse decks shared by others</view>
+      </view>
+
+      <!-- Search Bar -->
+      <view class="community-search">
+        <t-icon class="community-search-icon" name="search" size="40rpx" color="var(--lc-text-subtle)" />
+        <input
+          class="lc-input community-search-input"
+          placeholder="Search decks..."
+          placeholder-class="home-placeholder"
+          value="{{searchQuery}}"
+          bindinput="onSearchInput"
+        />
+        <button
+          wx:if="{{searchQuery}}"
+          class="community-search-clear"
+          catch:tap="onClearSearch"
+          hover-class="lc-hover-bg"
+        >
+          ×
+        </button>
+      </view>
+
+      <!-- Tabs -->
+      <view class="community-tabs">
+        <view
+          class="community-tab {{activeTab === 'hot' ? 'is-active' : ''}}"
+          data-tab="hot"
+          bind:tap="switchTab"
+          hover-class="lc-hover-bg"
+        >
+          <text>🔥 Hot</text>
+        </view>
+        <view
+          class="community-tab {{activeTab === 'new' ? 'is-active' : ''}}"
+          data-tab="new"
+          bind:tap="switchTab"
+          hover-class="lc-hover-bg"
+        >
+          <text>✨ New</text>
+        </view>
+        <view
+          class="community-tab {{activeTab === 'downloaded' ? 'is-active' : ''}}"
+          data-tab="downloaded"
+          bind:tap="switchTab"
+          hover-class="lc-hover-bg"
+        >
+          <text>📥 Top</text>
+        </view>
+      </view>
+
+      <!-- List -->
+      <view wx:if="{{isLoading && decks.length === 0}}" class="lc-card community-empty">
+        <view class="lc-inline-loading">
+          <view class="lc-mini-spinner" />
+          <text class="community-empty-text">Loading decks...</text>
+        </view>
+      </view>
+
+      <view wx:elif="{{decks.length === 0}}" class="lc-card community-empty">
+        <text class="community-empty-text">No decks yet</text>
+        <text class="community-empty-sub">Tip: add documents into cloud DB collection `community_decks`.</text>
+      </view>
+
+      <view wx:else class="community-list">
+        <view
+          wx:for="{{decks}}"
+          wx:key="id"
+          class="lc-card community-card"
+          bind:tap="goToDetail"
+          data-id="{{item.id}}"
+          hover-class="lc-hover-border"
+        >
+          <!-- Header with author info -->
+          <view class="community-card-header">
+            <view class="author-info">
+              <image class="author-avatar" src="{{item.authorAvatar}}" mode="aspectFill" />
+              <view class="author-details">
+                <text class="author-name">{{item.authorName}}</text>
+                <text class="author-level">Level {{item.authorLevel}}</text>
+              </view>
+            </view>
+            <text class="deck-time">{{item.uploadTime}}</text>
+          </view>
+
+          <!-- Deck Content -->
+          <view class="community-card-content">
+            <text class="deck-title">{{item.title}}</text>
+            <text class="deck-description">{{item.description}}</text>
+
+            <!-- Tags -->
+            <view class="deck-tags">
+              <text wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this" class="deck-tag">{{tag}}</text>
+            </view>
+          </view>
+
+          <!-- Stats -->
+          <view class="deck-stats">
+            <view class="stat-item">
+              <text class="stat-icon">❤️</text>
+              <text class="stat-value">{{item.likeCount}}</text>
+            </view>
+            <view class="stat-item">
+              <text class="stat-icon">📥</text>
+              <text class="stat-value">{{item.downloadCount}}</text>
+            </view>
+            <view class="stat-item">
+              <text class="stat-icon">🗂️</text>
+              <text class="stat-value">{{item.cardCount}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+
+

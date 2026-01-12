@@ -1,5 +1,20 @@
 const cloud = require('wx-server-sdk')
 
+try {
+  cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+} catch (e) {
+  // ignore
+}
+
+let sdkVersion = '<unknown>'
+try {
+  // eslint-disable-next-line global-require
+  sdkVersion = require('wx-server-sdk/package.json').version
+} catch (e) {
+  sdkVersion = '<unknown>'
+}
+
+console.log('wx-server-sdk version:', sdkVersion)
 console.log('wx-server-sdk keys:', Object.keys(cloud))
 console.log('has extend:', Object.prototype.hasOwnProperty.call(cloud, 'extend'), 'type:', typeof cloud.extend)
 console.log('has openapi:', Object.prototype.hasOwnProperty.call(cloud, 'openapi'), 'type:', typeof cloud.openapi)

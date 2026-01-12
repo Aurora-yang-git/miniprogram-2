@@ -1,9 +1,10 @@
 import { uploadImage } from '../../services/ocr'
-import { createJob, listMyJobs, getJob, startJob } from '../../services/createJobs'
+import { createJob, listMyJobs, getJob } from '../../services/createJobs'
 import { formatRelativeTime } from '../../services/time'
 
 const JOBS_CACHE_KEY = 'create_jobs_cache_v1'
 const JOBS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+const HOME_CACHE_KEY = 'home_decks_cache_v1'
 
 function toMs(val) {
   if (!val) return 0
@@ -31,6 +32,31 @@ function readJobsCache() {
     return { ts, jobs }
   } catch (e) {
     return null
+  }
+}
+
+function normalizeSubjectCandidates(filters) {
+  const list = Array.isArray(filters) ? filters : []
+  const out = []
+  const seen = new Set()
+  list.forEach((t) => {
+    const s = String(t || '').trim()
+    if (!s || s === 'All') return
+    if (seen.has(s)) return
+    seen.add(s)
+    out.push(s)
+  })
+  return out.slice(0, 12)
+}
+
+function readHomeSubjectCandidates() {
+  try {
+    const v = wx.getStorageSync && wx.getStorageSync(HOME_CACHE_KEY)
+    const obj = typeof v === 'string' ? JSON.parse(v) : v
+    const filters = obj && Array.isArray(obj.filters) ? obj.filters : []
+    return normalizeSubjectCandidates(filters)
+  } catch (e) {
+    return []
   }
 }
 
@@ -78,8 +104,8 @@ function getAppUiState() {
 }
 
 function stepToIndex(step) {
-  if (step === 'input') return 1
-  if (step === 'generate' || step === 'complete') return 2
+  if (step === 'mode') return 1
+  if (step === 'input' || step === 'generate' || step === 'complete') return 2
   return 0
 }
 
@@ -89,10 +115,11 @@ Page({
     statusBarRpx: 0,
     safeBottomRpx: 0,
 
-    step: 'mode',
-    stepLabels: ['Mode', 'Input', 'Generate'],
+    step: 'source',
+    stepLabels: ['Source', 'Mode', 'Input'],
     currentStepIndex: 0,
 
+    selectedSource: '',
     selectedMode: 'scan',
     modes: [
       { id: 'scan', icon: 'scan', label: 'Scan Photo', desc: 'Take a photo of notes or textbook' },
@@ -104,6 +131,8 @@ Page({
     inputText: '',
     knowledge: '',
     isFeynmanEntry: false,
+    subjectTag: '',
+    subjectCandidates: [],
 
     pickedImages: [],
 
@@ -144,8 +173,15 @@ Page({
     if (tabBar && tabBar.setData) tabBar.setData({ selected: 1, theme: ui.theme })
 
     this.hydrateInitialMode()
+    this.hydrateSubjectCandidates()
     this.hydrateJobsCache()
     this.loadJobs({ silent: this.data.hasJobsCache })
+  },
+
+  onHide() {
+    // Tab pages won't trigger onUnload when switching tabs.
+    // Stop polling to avoid noisy logs & unnecessary network requests in background.
+    this.stopJobPolling()
   },
 
   onUnload() {
@@ -162,6 +198,7 @@ Page({
       const entry = wx.getStorageSync && wx.getStorageSync('createEntry')
       if (mode === 'scan' || mode === 'upload' || mode === 'text') {
         this.setData({
+          selectedSource: 'local',
           selectedMode: mode,
           step: 'input',
           currentStepIndex: stepToIndex('input'),
@@ -183,6 +220,7 @@ Page({
       }
       if (entry === 'feynman') {
         this.setData({
+          selectedSource: 'local',
           step: 'input',
           currentStepIndex: stepToIndex('input'),
           selectedMode: 'text',
@@ -203,6 +241,13 @@ Page({
     } catch (e) {
       // ignore
     }
+  },
+
+  hydrateSubjectCandidates() {
+    const candidates = readHomeSubjectCandidates()
+    const current = String(this.data.subjectTag || '').trim()
+    const nextTag = current && candidates.includes(current) ? current : current
+    this.setData({ subjectCandidates: candidates, subjectTag: nextTag })
   },
 
   hydrateJobsCache() {
@@ -244,11 +289,21 @@ Page({
     if (!id) return
     this.stopJobPolling()
     this._pollingJobId = id
+    this._pollFailCount = 0
 
     const tick = async () => {
       if (this._pollingJobId !== id) return
+      const backoffMs = () => {
+        const n = typeof this._pollFailCount === 'number' ? this._pollFailCount : 0
+        if (n <= 0) return 2000
+        // 2s, 4s, 8s, 16s, 30s...
+        const base = 2000 * Math.pow(2, Math.min(4, n))
+        const capped = Math.min(30000, Math.max(2000, base))
+        return capped
+      }
       try {
         const job = await getJob(id)
+        this._pollFailCount = 0
         const uiJob = normalizeJobForUi(job)
         this.setData({ currentJobId: id, currentJob: uiJob })
 
@@ -295,10 +350,15 @@ Page({
           return
         }
       } catch (e) {
-        console.error('poll job failed', e)
+        this._pollFailCount = (typeof this._pollFailCount === 'number' ? this._pollFailCount : 0) + 1
+        // Avoid spamming logs; still keep one line for debugging.
+        console.warn('poll job failed', e && e.message ? e.message : e)
+        if (this._pollFailCount === 1) {
+          wx.showToast({ title: '网络不稳定，正在重试…', icon: 'none' })
+        }
       } finally {
         if (this._pollingJobId === id) {
-          this._jobPollTimer = setTimeout(tick, 2000)
+          this._jobPollTimer = setTimeout(tick, backoffMs())
         }
       }
     }
@@ -326,9 +386,29 @@ Page({
     })
   },
 
+  onSelectSource(e) {
+    const source = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.source : ''
+    if (source === 'community') {
+      wx.navigateTo({ url: '/pages/community/index' })
+      return
+    }
+    if (source !== 'local') return
+    this.setData({
+      selectedSource: 'local',
+      step: 'mode',
+      currentStepIndex: stepToIndex('mode')
+    })
+  },
+
   onDeckTitleInput(e) {
     const value = e && e.detail && typeof e.detail.value === 'string' ? e.detail.value : ''
     this.setData({ deckTitle: value })
+  },
+
+  onSubjectTap(e) {
+    const value = e && e.currentTarget && e.currentTarget.dataset ? e.currentTarget.dataset.subject : ''
+    const subjectTag = String(value || '').trim()
+    this.setData({ subjectTag })
   },
 
   onInputText(e) {
@@ -405,6 +485,8 @@ Page({
     const knowledge = String(this.data.knowledge || '').trim()
     const rawText = mode === 'text' ? String(this.data.inputText || '').trim() : ''
     const images = mode === 'images' ? (Array.isArray(this.data.pickedImages) ? this.data.pickedImages : []) : []
+    const subjectTag = String(this.data.subjectTag || '').trim()
+    const subjectCandidates = Array.isArray(this.data.subjectCandidates) ? this.data.subjectCandidates : []
     if (mode === 'text' && !rawText) {
       wx.showToast({ title: '请先粘贴/输入内容', icon: 'none' })
       return
@@ -446,12 +528,13 @@ Page({
         mode: mode === 'text' ? 'text' : 'images',
         rawText,
         imageFileIDs,
-        knowledge
+        knowledge,
+        subjectTag,
+        subjectCandidates
       })
       this.setData({ currentJobId: jobId })
 
-      // Try to start immediately for faster feedback; timer trigger will also process queued jobs.
-      startJob(jobId).catch(() => {})
+      // Let timer trigger process queued jobs to avoid callFunction timeouts on slow OCR/AI.
       this.loadJobs({ silent: true }).catch(() => {})
       this.startJobPolling(jobId)
     } catch (e) {

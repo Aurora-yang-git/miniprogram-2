@@ -2,13 +2,118 @@
 import { ensureUserStats } from './services/userStats'
 
 const THEME_MODE_KEY = 'themeMode' // system | light | dark
+const SYSTEM_THEME_CACHE_KEY = 'systemThemeCache' // light | dark (system-derived)
 
 App({
   globalData: {
     theme: 'light',
     themeMode: 'system',
+    systemTheme: 'light',
     statusBarRpx: 0,
     safeBottomRpx: 0
+  },
+
+  readCachedSystemTheme() {
+    try {
+      const v = wx.getStorageSync && wx.getStorageSync(SYSTEM_THEME_CACHE_KEY)
+      return v === 'dark' ? 'dark' : 'light'
+    } catch (e) {
+      return 'light'
+    }
+  },
+
+  writeCachedSystemTheme(theme) {
+    const t = theme === 'dark' ? 'dark' : 'light'
+    try {
+      wx.setStorageSync && wx.setStorageSync(SYSTEM_THEME_CACHE_KEY, t)
+    } catch (e) {
+      // ignore
+    }
+  },
+
+  getSystemInfoAsync() {
+    return new Promise((resolve) => {
+      try {
+        if (typeof wx.getSystemInfoAsync === 'function') {
+          wx.getSystemInfoAsync({
+            success: (res) => resolve(res),
+            fail: () => resolve(null)
+          })
+          return
+        }
+        if (typeof wx.getSystemInfo === 'function') {
+          wx.getSystemInfo({
+            success: (res) => resolve(res),
+            fail: () => resolve(null)
+          })
+          return
+        }
+      } catch (e) {
+        // ignore
+      }
+      resolve(null)
+    })
+  },
+
+  refreshSystemInfo() {
+    if (this._refreshSystemInfoPromise) return this._refreshSystemInfoPromise
+
+    this._refreshSystemInfoPromise = this.getSystemInfoAsync()
+      .then((sys) => {
+        if (!sys || typeof sys !== 'object') return null
+
+        // Metrics (rpx) for custom navbar/tabbar layouts
+        const screenWidth = sys && typeof sys.screenWidth === 'number' ? sys.screenWidth : 0
+        const screenHeight = sys && typeof sys.screenHeight === 'number' ? sys.screenHeight : 0
+        const statusBarHeight = sys && typeof sys.statusBarHeight === 'number' ? sys.statusBarHeight : 0
+
+        const pxToRpx = (px) => (screenWidth ? Math.round((px * 750) / screenWidth) : 0)
+        const statusBarRpx = pxToRpx(statusBarHeight)
+
+        const safeArea = sys && sys.safeArea ? sys.safeArea : null
+        const safeBottomPx =
+          safeArea && typeof safeArea.bottom === 'number' && screenHeight
+            ? Math.max(0, screenHeight - safeArea.bottom)
+            : 0
+        const safeBottomRpx = pxToRpx(safeBottomPx)
+
+        this.globalData.statusBarRpx = statusBarRpx
+        this.globalData.safeBottomRpx = safeBottomRpx
+
+        // Broadcast metrics to current pages so layouts can adjust after async init.
+        try {
+          const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+          if (Array.isArray(pages)) {
+            pages.forEach((p) => {
+              try {
+                if (p && typeof p.setData === 'function') p.setData({ statusBarRpx, safeBottomRpx })
+              } catch (e) {
+                // ignore per page
+              }
+            })
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        // System theme cache (avoid deprecated getSystemInfoSync)
+        const sysTheme = sys && typeof sys.theme === 'string' ? sys.theme : ''
+        if (sysTheme === 'dark' || sysTheme === 'light') {
+          this.globalData.systemTheme = sysTheme
+          this.writeCachedSystemTheme(sysTheme)
+          if (this.getThemeMode() === 'system' && this.getTheme() !== sysTheme) {
+            this.applyTheme(sysTheme)
+          }
+        }
+
+        return sys
+      })
+      .catch(() => null)
+      .finally(() => {
+        this._refreshSystemInfoPromise = null
+      })
+
+    return this._refreshSystemInfoPromise
   },
 
   applyNativeTabBarStyle(theme) {
@@ -74,13 +179,9 @@ App({
   },
 
   computeSystemTheme() {
-    try {
-      const sys = wx.getSystemInfoSync ? wx.getSystemInfoSync() : null
-      const sysTheme = sys && typeof sys.theme === 'string' ? sys.theme : ''
-      return sysTheme === 'dark' ? 'dark' : 'light'
-    } catch (e) {
-      return 'light'
-    }
+    const t = this.globalData && typeof this.globalData.systemTheme === 'string' ? this.globalData.systemTheme : ''
+    if (t === 'dark' || t === 'light') return t
+    return this.readCachedSystemTheme()
   },
 
   getTheme() {
@@ -111,6 +212,10 @@ App({
       // ignore
     }
     this.applyTheme(nextTheme)
+    if (m === 'system') {
+      // Refresh in background to pick up current system theme + metrics.
+      this.refreshSystemInfo()
+    }
     return nextTheme
   },
 
@@ -121,28 +226,8 @@ App({
   },
 
   ensureSystemMetrics() {
-    try {
-      const sys = wx.getSystemInfoSync ? wx.getSystemInfoSync() : null
-      const screenWidth = sys && typeof sys.screenWidth === 'number' ? sys.screenWidth : 0
-      const screenHeight = sys && typeof sys.screenHeight === 'number' ? sys.screenHeight : 0
-      const statusBarHeight = sys && typeof sys.statusBarHeight === 'number' ? sys.statusBarHeight : 0
-
-      const pxToRpx = (px) => (screenWidth ? Math.round((px * 750) / screenWidth) : 0)
-
-      const statusBarRpx = pxToRpx(statusBarHeight)
-
-      const safeArea = sys && sys.safeArea ? sys.safeArea : null
-      const safeBottomPx =
-        safeArea && typeof safeArea.bottom === 'number' && screenHeight
-          ? Math.max(0, screenHeight - safeArea.bottom)
-          : 0
-      const safeBottomRpx = pxToRpx(safeBottomPx)
-
-      this.globalData.statusBarRpx = statusBarRpx
-      this.globalData.safeBottomRpx = safeBottomRpx
-    } catch (e) {
-      // ignore
-    }
+    // Async to avoid deprecated sync API and reduce main-thread blocking.
+    this.refreshSystemInfo()
   },
 
   // 全局转发配置
@@ -159,14 +244,13 @@ App({
       const mode = this.getThemeMode()
       const next = mode === 'system' ? this.computeSystemTheme() : this.getTheme()
       this.applyTheme(next)
+      if (mode === 'system') this.refreshSystemInfo()
     } catch (e) {
       // ignore
     }
   },
 
   onLaunch: function () {
-    this.ensureSystemMetrics()
-
     // Theme init: themeMode(storage) -> legacy theme(storage) -> system
     let themeMode = 'system'
     try {
@@ -184,14 +268,21 @@ App({
       }
     }
     this.globalData.themeMode = themeMode
+    // Use cached systemTheme for the first paint; refresh async right after.
+    this.globalData.systemTheme = this.readCachedSystemTheme()
     const initialTheme = themeMode === 'system' ? this.computeSystemTheme() : themeMode
     this.applyTheme(initialTheme)
+    this.ensureSystemMetrics()
 
     // Listen to system theme changes when in system mode.
     try {
       if (typeof wx.onThemeChange === 'function') {
         wx.onThemeChange(({ theme }) => {
           if (this.getThemeMode() !== 'system') return
+          if (theme === 'dark' || theme === 'light') {
+            this.globalData.systemTheme = theme
+            this.writeCachedSystemTheme(theme)
+          }
           this.applyTheme(theme === 'dark' ? 'dark' : 'light')
         })
       }
@@ -203,9 +294,21 @@ App({
       console.error('请使用 2.2.3 或以上的基础库以使用云能力')
     } else {
       try {
+        // Some WeChat DevTools / base library versions may throw internal unhandled promise errors
+        // when CloudBase user tracing is enabled (e.g. initMessager/subscribe).
+        // It's safe to enable tracing only in release to avoid noisy DevTools errors and extra overhead.
+        let traceUser = false
+        try {
+          const info = typeof wx.getAccountInfoSync === 'function' ? wx.getAccountInfoSync() : null
+          const envVersion = info && info.miniProgram ? info.miniProgram.envVersion : ''
+          traceUser = envVersion === 'release'
+        } catch (e) {
+          traceUser = false
+        }
+
         const maybePromise = wx.cloud.init({
           env: 'eduction-cloud1-8g0geqlyf50302db',
-          traceUser: true,
+          traceUser,
         })
 
         const afterInit = () => {

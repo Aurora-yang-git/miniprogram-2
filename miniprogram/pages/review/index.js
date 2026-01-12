@@ -1,5 +1,6 @@
 import { listCardsByDeckTitle, listDueCards, normalizeDeckTitle } from '../../services/cards'
 import { recordReviewEvent } from '../../services/activity'
+import { toRichTextHtml } from '../../utils/richText'
 
 const PENDING_KEY = 'review_pending_submits'
 const CLOCK_SKEW_MS = 5000
@@ -89,6 +90,7 @@ Page({
     currentCard: null,
     totalCards: 0,
     isFlipped: false,
+    showHint: false,
 
     // summary
     showSummary: false,
@@ -173,11 +175,18 @@ Page({
       id: card.id || card._id,
       question: typeof card.question === 'string' ? card.question : '',
       answer: typeof card.answer === 'string' ? card.answer : '',
+      hint: typeof card.hint === 'string' ? card.hint : '',
       tags: Array.isArray(card.tags) ? card.tags : [],
+      topic: typeof card.topic === 'string' ? card.topic : '',
+      cardTags: Array.isArray(card.cardTags) ? card.cardTags : [],
       answerSections,
       sourceImages
     }
     normalized.answer = getAnswerText(normalized)
+    normalized.questionRich = toRichTextHtml(normalized.question)
+    normalized.answerRich = toRichTextHtml(normalized.answer)
+    normalized.hintRich = toRichTextHtml(normalized.hint)
+    normalized.topicBadge = normalized.topic || (Array.isArray(normalized.cardTags) && normalized.cardTags.length ? String(normalized.cardTags[0] || '').trim() : '')
     return normalized
   },
 
@@ -194,6 +203,7 @@ Page({
         currentCard: null,
         totalCards: 0,
         isFlipped: false,
+        showHint: false,
         showSummary: false,
         understoodCount: 0,
         notUnderstoodCount: 0,
@@ -213,7 +223,8 @@ Page({
       currentCard: null,
       currentIndex: 0,
       totalCards: 0,
-      isFlipped: false
+      isFlipped: false,
+      showHint: false
     })
     try {
       let rawList = []
@@ -242,6 +253,7 @@ Page({
         currentCard: queue[0] || null,
         totalCards: queue.length,
         isFlipped: false,
+        showHint: false,
         showSummary: false,
         understoodCount: 0,
         notUnderstoodCount: 0,
@@ -269,12 +281,23 @@ Page({
   onShowAnswer() {
     if (!this.data.currentCard) return
     if (this.data.isFlipped) return
-    this.setData({ isFlipped: true })
+    this.setData({ isFlipped: true, showHint: false })
   },
 
   onFlipCard() {
     if (!this.data.currentCard) return
-    this.setData({ isFlipped: !this.data.isFlipped })
+    this.setData({ isFlipped: !this.data.isFlipped, showHint: false })
+  },
+
+  onToggleHint() {
+    const c = this.data.currentCard
+    if (!c || !c.hint) return
+    if (this.data.isFlipped) return
+    this.setData({ showHint: !this.data.showHint })
+  },
+
+  onStopPropagation() {
+    // used with catch:tap to prevent flipping the card
   },
 
   async onResult(event) {
@@ -373,7 +396,7 @@ Page({
     try {
       const res = await wx.cloud.callFunction({
         name: 'submitReview',
-        data: { cardId, result }
+        data: { cardId, result, attemptTs }
       })
       const ret = res && res.result ? res.result : null
       if (!ret || ret.ok !== true) throw new Error((ret && ret.error) || 'submitReview failed')
@@ -424,7 +447,13 @@ Page({
     const results = Array.isArray(this._cardResults) ? this._cardResults : []
     const notUnderstoodCards = results
       .filter((r) => r && r.understood === false)
-      .map((r) => ({ cardId: r.cardId, question: r.question, answer: r.answer }))
+      .map((r) => ({
+        cardId: r.cardId,
+        question: r.question,
+        answer: r.answer,
+        questionRich: toRichTextHtml(`Q: ${String(r.question || '')}`),
+        answerRich: toRichTextHtml(`A: ${String(r.answer || '')}`)
+      }))
 
     const understoodCount = results.filter((r) => r && r.understood === true).length
     const notUnderstoodCount = notUnderstoodCards.length
@@ -440,7 +469,7 @@ Page({
     const next = this.data.currentIndex + 1
     const queueLen = Array.isArray(this._queue) ? this._queue.length : 0
     if (next >= queueLen) {
-      this.setData({ isFlipped: false })
+      this.setData({ isFlipped: false, showHint: false })
       const relearn = Array.isArray(this._relearnQueue) ? this._relearnQueue : []
       if (relearn.length) {
         const queue = relearn.slice()
@@ -453,7 +482,8 @@ Page({
           currentIndex: 0,
           currentCard: queue[0] || null,
           totalCards: queue.length,
-          isFlipped: false
+          isFlipped: false,
+          showHint: false
         })
         wx.showToast({ title: nextRound === 1 ? '错题再练' : `再练第${nextRound}轮`, icon: 'none' })
         return
@@ -467,7 +497,8 @@ Page({
     this.setData({
       currentIndex: next,
       currentCard: queue[next] || null,
-      isFlipped: false
+      isFlipped: false,
+      showHint: false
     })
   },
 

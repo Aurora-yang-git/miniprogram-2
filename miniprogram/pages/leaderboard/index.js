@@ -1,5 +1,4 @@
-import { getOpenid } from '../../services/auth'
-import { ensureUserStats } from '../../services/userStats'
+import { callOkFunction } from '../../services/cloud'
 
 const LEADERBOARD_CACHE_KEY = 'leaderboard_cache_v1'
 const LEADERBOARD_CACHE_TTL_MS = 24 * 60 * 60 * 1000
@@ -88,7 +87,7 @@ Page({
   async loadLeaderboard({ silent = false } = {}) {
     const seq = (this._loadSeq = (this._loadSeq || 0) + 1)
 
-    if (!wx.cloud || !wx.cloud.database) {
+    if (!wx.cloud || !wx.cloud.callFunction) {
       if (seq !== this._loadSeq) return
       if (!this.data.leaderboard || !this.data.leaderboard.length) {
         wx.showToast({ title: '云能力不可用', icon: 'none' })
@@ -98,64 +97,48 @@ Page({
     try {
       const hasAny = Array.isArray(this.data.leaderboard) && this.data.leaderboard.length > 0
       if (!silent && !hasAny) this.setData({ isLoading: true })
-
-      // 可用时高亮当前用户；失败也不影响榜单展示
-      let myOpenid = ''
-      try {
-        if (wx.cloud && wx.cloud.callFunction) {
-          myOpenid = await getOpenid()
-        }
-      } catch (e) {
-        myOpenid = ''
-      }
-      try {
-        await ensureUserStats()
-      } catch (e) {
-        // ignore
-      }
-
-      const db = wx.cloud.database()
-      const col = db.collection('user_stats')
-
-      // 内部批量拉取全量 user_stats（用户量小，用户感知是一次性加载）
-      const batchSize = 20
-      const maxTotal = 500
-      let all = []
-      let skip = 0
-      while (true) {
-        const res = await col.skip(skip).limit(batchSize).get()
-        const data = res && Array.isArray(res.data) ? res.data : []
-        all = all.concat(data)
-        if (data.length < batchSize) break
-        skip += batchSize
-        if (skip >= maxTotal) break
-      }
-
+      const ret = await callOkFunction('getGlobalRank', {})
       if (seq !== this._loadSeq) return
 
-      // 排序：xp desc
-      all.sort((a, b) => {
-        const axp = a && typeof a.xp === 'number' ? a.xp : 0
-        const bxp = b && typeof b.xp === 'number' ? b.xp : 0
-        return bxp - axp
-      })
+      const top = Array.isArray(ret.top) ? ret.top : []
+      const me = ret && ret.me ? ret.me : null
+      const meOpenid = me && typeof me.openid === 'string' ? me.openid : ''
+      const meXp = me && typeof me.xp === 'number' ? me.xp : 0
+      const meNickname = me && typeof me.nickname === 'string' && me.nickname ? me.nickname : '我'
+      const meAvatarUrl = me && typeof me.avatarUrl === 'string' ? me.avatarUrl : ''
+      const meRankText =
+        me && typeof me.rankText === 'string' && me.rankText
+          ? me.rankText
+          : me && typeof me.rank === 'number'
+            ? String(me.rank)
+            : '-'
 
-      const list = all.map((u, idx) => {
-        const openid = u && typeof u._openid === 'string' ? u._openid : ''
+      const list = top.map((u, idx) => {
+        const openid = u && typeof u.openid === 'string' ? u.openid : ''
         const xp = u && typeof u.xp === 'number' ? u.xp : 0
         const nickname = u && typeof u.nickname === 'string' && u.nickname ? u.nickname : '微信用户'
         const avatarUrl = u && typeof u.avatarUrl === 'string' ? u.avatarUrl : ''
-        const streakRaw = u && typeof u.streak === 'number' ? u.streak : null
-        const isCurrentUser = !!myOpenid && openid === myOpenid
+        const isCurrentUser = !!meOpenid && openid === meOpenid
         return {
           rank: idx + 1,
           username: nickname,
           avatarUrl,
           points: formatNumber(xp),
-          streak: streakRaw === null ? '-' : String(streakRaw),
+          streak: '-',
           isCurrentUser
         }
       })
+
+      if (meOpenid && !list.some((it) => it.isCurrentUser)) {
+        list.push({
+          rank: meRankText,
+          username: meNickname,
+          avatarUrl: meAvatarUrl,
+          points: formatNumber(meXp),
+          streak: '-',
+          isCurrentUser: true
+        })
+      }
 
       if (seq === this._loadSeq) {
         this.setData({ leaderboard: list, isLoading: false })
@@ -166,9 +149,7 @@ Page({
       console.error('loadLeaderboard failed', e)
       this.setData({ isLoading: false })
       if (!this.data.leaderboard || !this.data.leaderboard.length) {
-        const msg = e && e.message ? e.message : ''
-        const hint = msg && /permission|auth|权限/i.test(msg) ? '请将 user_stats 设为所有用户可读' : '加载失败'
-        wx.showToast({ title: hint, icon: 'none' })
+        wx.showToast({ title: '加载失败', icon: 'none' })
       }
     }
   },

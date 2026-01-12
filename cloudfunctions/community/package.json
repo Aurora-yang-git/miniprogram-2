@@ -1,0 +1,11 @@
+{
+  "name": "community",
+  "version": "1.0.0",
+  "description": "Community decks: browse/like/collect",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "^3.0.1"
+  }
+}
+
+

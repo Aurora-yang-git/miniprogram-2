@@ -20,7 +20,7 @@ function isDue(card, now) {
   return next <= now
 }
 
-async function listAll(where) {
+async function listAll(where, { field } = {}) {
   const db = getDb()
   const col = db.collection('cards')
   // WeChat Cloud DB client side returns at most 20 docs per request; paginate via skip.
@@ -28,7 +28,9 @@ async function listAll(where) {
   let skip = 0
   let out = []
   while (true) {
-    const res = await col.where(where).orderBy('updatedAt', 'desc').skip(skip).limit(limit).get()
+    let q = col.where(where).orderBy('updatedAt', 'desc').skip(skip).limit(limit)
+    if (field && typeof q.field === 'function') q = q.field(field)
+    const res = await q.get()
     const batch = res && Array.isArray(res.data) ? res.data : []
     out = out.concat(batch)
     if (batch.length < limit) break
@@ -40,7 +42,11 @@ async function listAll(where) {
 
 async function listUserCards() {
   const openid = await getOpenid()
-  const cards = await listAll({ _openid: openid })
+  // Home page only needs deck aggregation fields; avoid downloading full card bodies.
+  const cards = await listAll(
+    { _openid: openid },
+    { field: { deckTitle: true, tags: true, nextReviewAt: true, lastReviewedAt: true, updatedAt: true } }
+  )
   return cards
 }
 
@@ -97,6 +103,21 @@ async function listDueCards({ deckTitle, limit } = {}) {
     const res = await db
       .collection('cards')
       .where(where)
+      .field({
+        deckTitle: true,
+        question: true,
+        answer: true,
+        hint: true,
+        tags: true,
+        topic: true,
+        cardTags: true,
+        answerSections: true,
+        sourceImages: true,
+        sourceImage: true,
+        nextReviewAt: true,
+        lastReviewedAt: true,
+        updatedAt: true
+      })
       .orderBy('updatedAt', 'desc')
       .skip(skip)
       .limit(pageSize)

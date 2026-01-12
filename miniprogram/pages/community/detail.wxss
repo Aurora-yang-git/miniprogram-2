@@ -1,0 +1,263 @@
+page {
+  background: var(--lc-bg);
+}
+
+.detail-container {
+  padding-top: 48rpx;
+  /* avoid fixed action bar */
+  padding-bottom: 180rpx;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  color: var(--lc-text-muted);
+  margin-bottom: 24rpx;
+}
+
+.back-text {
+  font-size: 26rpx;
+}
+
+.empty-card {
+  padding: 64rpx;
+}
+
+.deck-info {
+  padding-bottom: 24rpx;
+}
+
+.deck-title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 600;
+  color: var(--lc-text);
+  margin-bottom: 24rpx;
+  line-height: 1.4;
+}
+
+.author-section {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.author-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: var(--lc-radius-full);
+  background: var(--lc-surface-2);
+  flex-shrink: 0;
+}
+
+.author-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.author-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--lc-text);
+}
+
+.author-level {
+  font-size: 26rpx;
+  color: var(--lc-text-muted);
+}
+
+.stats-card {
+  background: var(--lc-surface);
+  border: 2rpx solid var(--lc-border);
+  border-radius: var(--lc-radius-xl);
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  box-sizing: border-box;
+}
+
+.stat-row {
+  display: flex;
+  gap: 32rpx;
+  margin-bottom: 24rpx;
+}
+.stat-row:last-child {
+  margin-bottom: 0;
+}
+
+.stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: var(--lc-text-subtle);
+}
+
+.stat-value {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--lc-text);
+}
+
+.section-card {
+  background: var(--lc-surface);
+  border: 2rpx solid var(--lc-border);
+  border-radius: var(--lc-radius-xl);
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  box-sizing: border-box;
+}
+
+.section-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--lc-text);
+  margin-bottom: 16rpx;
+}
+
+.description-text {
+  display: block;
+  font-size: 28rpx;
+  color: var(--lc-text-muted);
+  line-height: 1.7;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.tag {
+  padding: 10rpx 20rpx;
+  background: var(--lc-primary-50);
+  color: var(--lc-primary);
+  font-size: 26rpx;
+  border-radius: 12rpx;
+  font-weight: 600;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.preview-count {
+  font-size: 24rpx;
+  color: var(--lc-text-muted);
+}
+
+.preview-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.preview-card {
+  display: flex;
+  gap: 12rpx;
+  padding: 20rpx;
+  background: var(--lc-surface-2);
+  border-radius: var(--lc-radius-lg);
+}
+
+.card-number {
+  font-size: 26rpx;
+  color: var(--lc-primary);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.card-question {
+  flex: 1;
+  font-size: 26rpx;
+  color: var(--lc-text);
+  line-height: 1.6;
+}
+
+.show-more-btn {
+  padding: 20rpx;
+  text-align: center;
+  color: var(--lc-primary);
+  font-size: 26rpx;
+  font-weight: 600;
+  border-radius: var(--lc-radius-lg);
+  background: var(--lc-primary-50);
+}
+
+.action-buttons {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--lc-surface);
+  padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + var(--lc-safe-bottom, 0rpx));
+  border-top: 2rpx solid var(--lc-border);
+  display: flex;
+  gap: 16rpx;
+  box-sizing: border-box;
+}
+
+.btn-secondary,
+.btn-primary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 24rpx;
+  border-radius: var(--lc-radius-xl);
+  font-weight: 700;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.btn-secondary::after,
+.btn-primary::after {
+  border: none;
+}
+
+.btn-secondary {
+  background: var(--lc-surface);
+  border: 2rpx solid var(--lc-border);
+  color: var(--lc-text);
+}
+
+.btn-secondary.liked {
+  border-color: var(--lc-danger);
+  background: var(--lc-danger-50);
+}
+
+.btn-primary {
+  background: var(--lc-primary);
+  color: #fff;
+}
+
+.btn-primary[disabled] {
+  opacity: 0.6;
+}
+
+.btn-primary.collected {
+  background: var(--lc-success);
+}
+
+.btn-icon {
+  font-size: 32rpx;
+  line-height: 1;
+}
+
+.btn-text {
+  line-height: 1;
+}
+
+

@@ -11,6 +11,7 @@
 - **卡包（Deck）管理**
   - Home 聚合展示所有 Deck（由 `cards.deckTitle` 自动分组，无需单独 `decks` 集合）
   - Deck 详情查看卡片列表、删除卡片、学习/复习入口
+  - **默认官方卡包已迁移到 Community**：新用户不会再自动写入默认卡片到你的 `cards`，需要在 Community 中 **Collect** 到自己的卡库
 - **学习与复习**
   - **Study**：按卡包全量学习
   - **Review**：只复习到期卡（due）
@@ -18,7 +19,7 @@
 - **目标与数据面板**
   - Daily Goal、今日完成量、连续学习 streak、周/月统计
 - **排行榜**
-  - 云函数聚合 `user_stats.xp` 返回 Top 与我的排名
+  - 通过 `leaderboardWorker` 定时预计算缓存，`getGlobalRank` 走缓存快路径（Top50 精确名次；其他用户返回近似区间 `rankText`）
 
 ### 技术栈概览
 
@@ -26,7 +27,7 @@
 - **云开发**：云数据库（`cards` / `user_stats`）+ 云存储 + 云函数（`cloudfunctions/`）
 - **AI**
   - **OCR**：云函数 `analyzeImage` 调用 Moonshot(Kimi) 视觉接口（需要配置 `MOONSHOT_API_KEY`）
-  - **卡片生成**：小程序端调用 `wx.cloud.extend.AI` 的 `deepseek-r1`
+  - **卡片生成（后台任务）**：云函数 `resetDailyScore` 作为 worker 处理 `create_jobs` 队列，在云端调用 DeepSeek API 生成卡片（需要配置 `DEEPSEEK_API_KEY`；可选回退到 Moonshot 文本模型）
 
 ### 本地开发 / 启动方式
 
@@ -60,6 +61,39 @@ npm install
   - **配置 OCR 密钥（必做）**
     - 云函数 `analyzeImage` 需要环境变量：`MOONSHOT_API_KEY`
     - 在云开发控制台/开发者工具中为该云函数配置环境变量后，重新部署一次 `analyzeImage`
+  - **配置生成密钥（必做）**
+    - 云函数 `resetDailyScore` 需要环境变量：`DEEPSEEK_API_KEY`
+    - 图片模式还需要：`MOONSHOT_API_KEY`（worker 内部会 `downloadFile` 并调用 Moonshot 视觉 OCR；不再云函数内嵌套调用 `analyzeImage`，避免超时）
+    - 可选：`DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`（默认 `deepseek-chat`）
+    - 可选回退：如果也配置了 `MOONSHOT_API_KEY`，可通过 `MOONSHOT_TEXT_MODEL`（默认 `moonshot-v1-8k`）作为生成兜底
+    - 可选：`MOONSHOT_VISION_MODEL`（默认 `moonshot-v1-8k-vision-preview`）、`MOONSHOT_OCR_TIMEOUT_MS`（默认 `50000`）
+    - 可选：`WORKER_WRITE_BATCH`（每次写入多少张卡，默认 `8`；用于避免单次执行超时）
+    - 可选：`WORKER_MAX_RETRY`（worker 遇到临时网络/限流/5xx 时的最大重试次数，默认 `6`；配合 `retryAt/retryCount` 字段做退避重试）
+  - **启用后台 worker 的定时触发器（必做）**
+    - 打开 `cloudfunctions/resetDailyScore/config.json`
+    - 在微信开发者工具中右键该 `config.json` → **上传触发器**
+    - 上传成功后，触发器会按 cron 自动运行并处理 `create_jobs` 队列（即使用户退出小程序也会继续生成）
+  - **启用排行榜缓存 worker（强烈推荐 / 性能关键）**
+    - 创建云数据库集合：`leaderboard_cache`
+    - 部署云函数：`cloudfunctions/leaderboardWorker`（上传并部署：云端安装依赖）
+    - 启用定时触发器：
+      - 打开 `cloudfunctions/leaderboardWorker/config.json`
+      - 在微信开发者工具中右键该 `config.json` → **上传触发器**
+    - 说明：
+      - `leaderboardWorker` 会写入 `leaderboard_cache/latest`（Top50 + xpBuckets + totalUsers）
+      - `getGlobalRank` 会优先读取缓存，极大降低 P95（不再在请求链路里做 `count(xp > myXp)`）
+  - **启用 Community（社区）功能（必做）**
+    - 创建云数据库集合（否则会报 `DATABASE_COLLECTION_NOT_EXIST`）：
+      - `community_decks`
+      - `community_deck_likes`
+      - `community_deck_collections`
+    - 部署云函数：`cloudfunctions/community`（上传并部署：云端安装依赖）
+    - 首次打开小程序的 **Community 页面** 会自动触发云函数幂等 seed：把“官方默认卡包”写入 `community_decks`（不再自动写入每个用户的 `cards`）
+    - **发布/取消发布**：在任意本地 Deck 的详情页，有一个 **Community 开关**，开启后发布到 Community；关闭会从 Community 下架
+    - 可选环境变量（不配置则用默认值）：
+      - `COMMUNITY_MAX_COLLECT`：单次收藏最大卡片数（默认 `80`）
+      - `COMMUNITY_MAX_PUBLISH`：单次发布最大卡片数（默认 `200`）
+      - `COMMUNITY_COLLECT_CONCURRENCY`：收藏时并发写入卡片的并发数（默认 `8`，建议 5~10）
 
 ### 依赖说明与冗余依赖结论
 
@@ -68,7 +102,7 @@ npm install
   - 当前仅需要 `tdesign-miniprogram`，**不需要**在根目录安装 `wx-server-sdk`
 
 - **云函数（`cloudfunctions/*/package.json`）**
-  - 每个云函数独立部署，依赖各自的 `package.json`（当前都依赖 `wx-server-sdk@^2.6.3`）
+  - 每个云函数独立部署，依赖各自的 `package.json`（当前大多数依赖 `wx-server-sdk@^2.6.3`，worker `resetDailyScore` 为 `wx-server-sdk@^3.0.1`）
   - 这类重复声明是云函数部署方式决定的，**不属于冗余**
 
 - **参考 UI**
@@ -79,7 +113,28 @@ npm install
 - **`login`**：返回当前用户 `openid`
 - **`submitReview`**：提交复习结果（remember/forget），更新 `cards` 的 SRS 字段，并维护 `user_stats`（XP、dailyXp、streak 等）
 - **`getGlobalRank`**：读取 `user_stats`，返回 Top50 与我的排名（当前排行榜页面 streak 显示为 `-`，因为云函数返回里未包含）
+- **`leaderboardWorker`**：定时预计算排行榜缓存到 `leaderboard_cache/latest`（Top50 + totalUsers + xpBuckets），用于加速 `getGlobalRank`
+- **`getGlobalRank`**：优先读取 `leaderboard_cache/latest`（Top50 精确；非 Top50 返回近似区间 `rankText`）；缓存缺失时会降级返回（功能不挂）
 - **`analyzeImage`**：输入云存储 `fileID`，输出 OCR 文本（依赖 `MOONSHOT_API_KEY`）
+- **`resetDailyScore`**：后台 worker（定时触发器），处理 `create_jobs`：OCR→AI 生成→写入 `cards`→更新 job 进度/状态（依赖 `DEEPSEEK_API_KEY`；图片模式需 `MOONSHOT_API_KEY`）
+- **`community`**：Community（社区卡包）：浏览/搜索/排序 + 详情页 + 点赞 + 收藏 + **发布/取消发布我的 Deck**（收藏会把社区 deck 的卡片复制到我的 `cards`）
+
+### 云数据库索引建议
+
+建议在云开发控制台创建：
+
+- **`user_stats`**
+  - `xp`（降序）
+- **`cards`**
+  - `_openid`（升序）
+  - `_openid + deckTitle`（组合索引）
+- **`community_decks`**
+  - `hotScore`（降序）
+  - `downloadCount`（降序）
+  - `createdAt`（降序）
+- **`create_jobs`**
+  - `status`（升序）
+  - `status + updatedAt`（组合索引）
 
 ### 云数据库数据模型（简版）
 
@@ -88,6 +143,7 @@ npm install
   - `question`: string
   - `answer`: string
   - `tags`: string[]
+  - （来自 Community 收藏的卡片会额外带）`sourceCommunityDeckId` / `sourceCommunityCardIndex` / `sourceCommunityTitle`
   - `createdAt` / `updatedAt`
   - SRS 字段：`nextReviewAt` / `lastReviewedAt` / `srsEF` / `srsInterval` / `srsReps`
 
@@ -96,6 +152,19 @@ npm install
   - `streak` / `studiedToday` / `lastStudyDate`
   - `dailyGoal`
   - `nickname` / `avatarUrl`（用于个人页与排行榜展示）
+
+- **`community_decks`**
+  - `title` / `description` / `tags`
+  - `authorName` / `authorAvatar` / `authorLevel`
+  - `cards`: `{ question, answer }[]`
+  - `cardCount` / `likeCount` / `downloadCount` / `hotScore`
+  - `isOfficial`（官方默认卡包）/ `isPublic`（是否公开）
+  - `ownerOpenid` / `sourceDeckTitle`（用户发布的 Deck 元信息）
+  - `createdAt` / `updatedAt`
+
+- **`community_deck_likes`**：用户点赞记录（云函数按 `OPENID_deckId` 作为 docId 幂等）
+- **`community_deck_collections`**：用户收藏记录（云函数按 `OPENID_deckId` 作为 docId 幂等）
+- **`leaderboard_cache`**：排行榜缓存（由 `leaderboardWorker` 写入 `latest` 文档；`getGlobalRank` 读取）
 
 更完整的数据流与架构说明请参考：`docs/architecture.md`
 
@@ -120,8 +189,10 @@ miniprogram-2/
 - **OCR 报错 `missing MOONSHOT_API_KEY`**
   - 给云函数 `analyzeImage` 配置环境变量 `MOONSHOT_API_KEY`，并重新部署云函数
 
-- **生成卡片时报 “AI能力不可用”**
-  - 需要云开发 AI 能力可用（`wx.cloud.extend.AI`）；无法使用时可先用“粘贴文本/手动创建”方式
+- **生成任务一直卡在 queued/running**
+  - 检查云函数 `resetDailyScore` 是否已部署且定时触发器生效
+  - 检查环境变量：`DEEPSEEK_API_KEY`（以及 `MOONSHOT_API_KEY` 用于 OCR）
+  - 到云函数日志里看 `create_jobs` 的 `error` 字段与 worker 报错信息
 
 - **小程序报错找不到 `tdesign-miniprogram/...`**
   - 先在 `xuexikazi/` 执行 `npm install`，再在开发者工具里执行 **工具 → 构建 npm**

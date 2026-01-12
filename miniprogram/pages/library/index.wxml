@@ -13,7 +13,7 @@
     <view class="lc-container create-container">
       <view class="create-title-block">
         <view class="lc-h1">Create New Deck</view>
-        <view class="lc-p">AI will generate knowledge cards from your content</view>
+        <view class="lc-p">Choose how to create your flashcards</view>
       </view>
 
       <!-- Step Indicator -->
@@ -28,8 +28,36 @@
         </block>
       </view>
 
-      <!-- Mode Selection -->
-      <view wx:if="{{step === 'mode'}}" class="create-section">
+      <!-- Step 0: Choose Source (Local or Community) -->
+      <view wx:if="{{step === 'source'}}" class="create-section">
+        <view class="create-section-title">Choose creation source</view>
+        <view class="source-list">
+          <view class="source-item" data-source="local" bind:tap="onSelectSource" hover-class="lc-hover-border">
+            <view class="source-icon">
+              <text class="source-emoji">📝</text>
+            </view>
+            <view class="source-info">
+              <view class="source-label">Local Deck</view>
+              <view class="source-desc">Create from your own content</view>
+            </view>
+            <text class="source-arrow">›</text>
+          </view>
+
+          <view class="source-item" data-source="community" bind:tap="onSelectSource" hover-class="lc-hover-border">
+            <view class="source-icon">
+              <text class="source-emoji">🌐</text>
+            </view>
+            <view class="source-info">
+              <view class="source-label">Community</view>
+              <view class="source-desc">Browse &amp; collect shared decks</view>
+            </view>
+            <text class="source-arrow">›</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- Step 1: Mode Selection (Local) -->
+      <view wx:elif="{{step === 'mode'}}" class="create-section">
         <view class="create-section-title">Choose input method</view>
         <view class="mode-list">
           <view
@@ -53,6 +81,35 @@
 
       <!-- Input Step -->
       <view wx:elif="{{step === 'input'}}" class="create-section">
+        <view class="field-block">
+          <view class="field-label">Subject (学科)</view>
+          <scroll-view scroll-x class="subject-chip-scroll" show-scrollbar="{{false}}">
+            <view class="lc-chip-row">
+              <view
+                class="lc-chip {{!subjectTag ? 'is-active' : ''}}"
+                data-subject=""
+                bind:tap="onSubjectTap"
+                hover-class="lc-hover-border"
+              >
+                Auto
+              </view>
+              <view
+                wx:for="{{subjectCandidates}}"
+                wx:key="*this"
+                class="lc-chip {{subjectTag === item ? 'is-active' : ''}}"
+                data-subject="{{item}}"
+                bind:tap="onSubjectTap"
+                hover-class="lc-hover-border"
+              >
+                {{item}}
+              </view>
+            </view>
+          </scroll-view>
+          <view class="lc-p" style="margin-top: 12rpx;">
+            Deck tag 仅用于学科筛选；卡片类型将由 AI 自动判断。
+          </view>
+        </view>
+
         <view class="field-block">
           <view class="field-label">Deck Title</view>
           <input
